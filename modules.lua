@@ -377,7 +377,7 @@ function compute(pid)
 			os.execute('chmod +x '..luaDir..'derive.py')
 		end
 		
-		-- calcul de la dérivée via le script python précédent (chemin à adapter)
+		-- calcul de la dérivée via le script python précédent
 		local delta_erreur = tonumber(os.capture(string.gsub(debug.getinfo(1).source, "^@(.+/)[^/]+$", "%1")..'/derive.py "'..temps..'"'))
 	
 		-- calcul pid
