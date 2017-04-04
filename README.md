@@ -1,1 +1,1 @@
-# lua
+# Domoticz lua scripts
