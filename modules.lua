@@ -29,7 +29,7 @@ smsGatewayIP = '192.168.22.171'
 smsGatewayPORT = '41047'
 smsGatewayURL = 'http://'..smsGatewayIP..':'..smsGatewayPORT
 
-admin = 'xxxxx@gmail.com'
+admin = 'xxxx@gmail.com'
 
 --------------------------------
 ------         END        ------
@@ -79,7 +79,6 @@ function LogVariables(x,depth,name)
         end
     end
 end
-
 
 -- os.execute output or web page content return
 -- usage
@@ -382,7 +381,7 @@ function compute(pid)
 		end
 		
 		-- calcul de la dérivée via le script python précédent
-		local delta_erreur = tonumber(os.capture(string.gsub(debug.getinfo(1).source, "^@(.+/)[^/]+$", "%1")..'/derive.py "'..temps..'"'))
+		local delta_erreur = tonumber(os.capture(luaDir..'/derive.py "'..temps..'"'))
 	
 		-- calcul pid
 		local P = round(pid['Kp']*erreur,2)
