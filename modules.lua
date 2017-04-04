@@ -5,8 +5,7 @@
 -- a copier en début de tout script
 
 -- chargement des modules
-package.path = package.path..";"..string.gsub(debug.getinfo(1).source, "^@(.+/)[^/]+$", "%1").."?.lua"	-- linux
---package.path = package.path..";"..string.gsub(debug.getinfo(1).source, "^(.+\\)[^\\]+$", "%1").."?.lua"	-- windows
+package.path = package.path..";"..debug.getinfo(1).source:match("@?(.*/)").."?.lua"	-- linux
 require "modules"
 
 local debug = true  -- true pour voir les logs dans la console log Dz ou false pour ne pas les voir
@@ -17,11 +16,10 @@ local debug = true  -- true pour voir les logs dans la console log Dz ou false p
 
 ]]
 
-luaDir = string.gsub(debug.getinfo(1).source, "^@(.+/)[^/]+$", "%1")	-- chemin du dossier lua (linux)
---luaDir = string.gsub(debug.getinfo(1).source, "^(.+\\)[^\\]+$", "%1")	-- chemin du dossier lua (windows)
-curl = '/usr/bin/curl -m 5 ' -- (linux) ne pas oublier l'espace à la fin
-json = assert(loadfile(luaDir..'JSON.lua'))()
 
+--------------------------------
+------ 	  USER SETTINGS	  ------
+--------------------------------
 
 domoticzIP = '192.168.22.100'	--'127.0.0.1'
 domoticzPORT = '8080'
@@ -31,8 +29,15 @@ smsGatewayIP = '192.168.22.171'
 smsGatewayPORT = '41047'
 smsGatewayURL = 'http://'..smsGatewayIP..':'..smsGatewayPORT
 
-admin = 'admin@gmail.com'
+admin = 'xxxxx@gmail.com'
 
+--------------------------------
+------         END        ------
+--------------------------------
+
+luaDir = debug.getinfo(1).source:match("@?(.*/)")		-- chemin du dossier lua (linux)
+curl = '/usr/bin/curl -m 5 '		 					-- (linux) ne pas oublier l'espace à la fin
+json = assert(loadfile(luaDir..'JSON.lua'))()
 
 -- retourne l'heure actuelle ex: "12:45"
 heure = string.sub(os.date("%X"), 1, 5)
@@ -55,7 +60,7 @@ dayTime = timeofday['Daytime']
 -- il fait nuit
 nightTime = timeofday['Nighttime']
 
--- get température
+-- température
 function getTemp(device)
 	return round(tonumber(otherdevices_temperature[device]),1)
 end	
@@ -205,7 +210,6 @@ function creaVar(name,value)
 	os.execute(curl..'"'..domoticzURL..'/json.htm?type=command&param=saveuservariable&vname='..url_encode(name)..'&vtype=2&vvalue='..url_encode(value)..'" &')
 end
 
--- TTS
 -- envoie dans un capteur text une chaîne de caractères
 -- le text sera intercepté et lu par la custom page grâce à sa fonction MQTT
 -- usage
