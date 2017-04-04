@@ -381,7 +381,7 @@ function compute(pid)
 		end
 		
 		-- calcul de la dérivée via le script python précédent
-		local delta_erreur = tonumber(os.capture(luaDir..'/derive.py "'..temps..'"'))
+		local delta_erreur = tonumber(os.capture(luaDir..'derive.py "'..temps..'"'))
 	
 		-- calcul pid
 		local P = round(pid['Kp']*erreur,2)
