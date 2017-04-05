@@ -21,23 +21,28 @@ local debug = true  -- true pour voir les logs dans la console log Dz ou false p
 ------ 	  USER SETTINGS	  ------
 --------------------------------
 
+-- domoticz
 domoticzIP = '192.168.22.100'	--'127.0.0.1'
 domoticzPORT = '8080'
+domoticzUSER = ''		-- nom d'utilisateur
+domoticzPSWD = ''		-- mot de pass
+domoticzPASSCODE = ''	-- pour interrupteur protégés
 domoticzURL = 'http://'..domoticzIP..':'..domoticzPORT
 
+-- passerelle SMS
 smsGatewayIP = '192.168.22.171'
 smsGatewayPORT = '41047'
 smsGatewayURL = 'http://'..smsGatewayIP..':'..smsGatewayPORT
 
-admin = 'xxxx@gmail.com'
+admin = 'xxxxx@gmail.com'
 
 --------------------------------
 ------         END        ------
 --------------------------------
 
-luaDir = debug.getinfo(1).source:match("@?(.*/)")		-- chemin du dossier lua (linux)
-curl = '/usr/bin/curl -m 5 '		 					-- (linux) ne pas oublier l'espace à la fin
-json = assert(loadfile(luaDir..'JSON.lua'))()
+luaDir = debug.getinfo(1).source:match("@?(.*/)")					-- chemin du dossier lua (linux)
+curl = '/usr/bin/curl -m 5 -u domoticzUSER:domoticzPSWD '		 	-- (linux) ne pas oublier l'espace à la fin curl
+json = assert(loadfile(luaDir..'JSON.lua'))()						-- chargement du fichier JSON.lua
 
 -- retourne l'heure actuelle ex: "12:45"
 heure = string.sub(os.date("%X"), 1, 5)
@@ -252,9 +257,9 @@ end
 -- switch On a device and set level if dimmmable
 function switchOn(device,level)
 	if level ~= nil then
-		os.execute(curl..'"'..domoticzURL..'/json.htm?type=command&param=switchlight&idx='..otherdevices_idx[device]..'&switchcmd=Set%20Level&level='..level..'" &')
+		os.execute(curl..'"'..domoticzURL..'/json.htm?type=command&param=switchlight&idx='..otherdevices_idx[device]..'&switchcmd=Set%20Level&level='..level..'&passcode='..domoticzPASSCODE..'" &')
 	else	
-		os.execute(curl..'"'..domoticzURL..'/json.htm?type=command&param=switchlight&idx='..otherdevices_idx[device]..'&switchcmd=On" &')
+		os.execute(curl..'"'..domoticzURL..'/json.htm?type=command&param=switchlight&idx='..otherdevices_idx[device]..'&switchcmd=On&passcode='..domoticzPASSCODE..'" &')
 	end	
 end
 
@@ -266,22 +271,22 @@ end
 
 -- switch Off a device
 function switchOff(device)
-	os.execute(curl..'"'..domoticzURL..'/json.htm?type=command&param=switchlight&idx='..otherdevices_idx[device]..'&switchcmd=Off" &')
+	os.execute(curl..'"'..domoticzURL..'/json.htm?type=command&param=switchlight&idx='..otherdevices_idx[device]..'&switchcmd=Off&passcode='..domoticzPASSCODE..'" &')
 end
 
 -- Toggle a device
 function switch(device)
-	os.execute(curl..'"'..domoticzURL..'/json.htm?type=command&param=switchlight&idx='..otherdevices_idx[device]..'&switchcmd=Toggle" &')
+	os.execute(curl..'"'..domoticzURL..'/json.htm?type=command&param=switchlight&idx='..otherdevices_idx[device]..'&switchcmd=Toggle&passcode='..domoticzPASSCODE..'" &')
 end
 
 -- switch On a group or scene
 function groupOn(device)
-	os.execute(curl..'"'..domoticzURL..'/json.htm?type=command&param=switchscene&idx='..otherdevices_scenesgroups_idx[device]..'&switchcmd=On" &')
+	os.execute(curl..'"'..domoticzURL..'/json.htm?type=command&param=switchscene&idx='..otherdevices_scenesgroups_idx[device]..'&switchcmd=On&passcode='..domoticzPASSCODE..'" &')
 end
 
 -- switch Off a group
 function groupOff(device)
-	os.execute(curl..'"'..domoticzURL..'/json.htm?type=command&param=switchscene&idx='..otherdevices_scenesgroups_idx[device]..'&switchcmd=Off" &')
+	os.execute(curl..'"'..domoticzURL..'/json.htm?type=command&param=switchscene&idx='..otherdevices_scenesgroups_idx[device]..'&switchcmd=Off&passcode='..domoticzPASSCODE..'" &')
 end
 
 -- régulation chauffage (PID)
