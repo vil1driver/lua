@@ -34,7 +34,7 @@ smsGatewayIP = '192.168.22.171'
 smsGatewayPORT = '41047'
 smsGatewayURL = 'http://'..smsGatewayIP..':'..smsGatewayPORT
 
-admin = 'xxxxx@gmail.com'
+admin = 'xxxxxxx@gmail.com'
 
 --------------------------------
 ------         END        ------
@@ -233,6 +233,20 @@ function jsonInfos(device)
 	local list = rid:read('*all')
 	rid:close()
 	return json:decode(list).result[1]
+end
+
+-- parcours la table dans l'ordre
+function spairs(t)
+    local keys = {}
+    for k in pairs(t) do keys[#keys+1] = k end
+	table.sort(keys)
+	local i = 0
+	return function()
+		i = i + 1
+		if keys[i] then
+			return keys[i], t[keys[i]]
+		end
+	end
 end
 
 -- Renverse une table
