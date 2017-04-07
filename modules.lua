@@ -5,8 +5,7 @@
 -- a copier en début de tout script
 
 -- chargement des modules
-package.path = package.path..";"..debug.getinfo(1).source:match("@?(.*/)").."?.lua"	-- linux
-require "modules"
+dofile("/home/pi/domoticz/scripts/lua/modules.lua")
 
 local debug = true  -- true pour voir les logs dans la console log Dz ou false pour ne pas les voir
 
@@ -34,7 +33,7 @@ smsGatewayIP = '192.168.22.171'
 smsGatewayPORT = '41047'
 smsGatewayURL = 'http://'..smsGatewayIP..':'..smsGatewayPORT
 
-admin = 'xxxxxxx@gmail.com'
+admin = 'xxxxxxxx@gmail.com'
 
 --------------------------------
 ------         END        ------
