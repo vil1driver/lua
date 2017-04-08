@@ -3,7 +3,8 @@
 
 bibliothèque de fonctions pour domoticz
 utiles à la réalisation de scripts d'automation en langage lua
-certaines fonctions ne foncteionneront pas sous windows.
+
+/!\ certaines fonctions ne fonctionneront pas sous windows.
 
 copier ce qui se trouve entre les 2 lignes ci dessous, en début de tout vos script
 pour charger ce fichier et pouvoir en utiliser les fonctions
