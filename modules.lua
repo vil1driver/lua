@@ -28,17 +28,13 @@ domoticzPSWD = ''		-- mot de pass
 domoticzPASSCODE = ''	-- pour interrupteur protégés
 domoticzURL = 'http://'..domoticzIP..':'..domoticzPORT
 
--- chemin vers le dossier lua
-luaDir = '/home/pi/domoticz/scripts/lua/'					-- linux
---luaDir = 'C:\Program Files (x86)\Domoticz\scripts\lua\'			-- windows
---luaDir = '/volume1/@appstore/domoticz/var/scripts/lua/'			-- synology
-
 admin = 'xxxx@gmail.com'
 
 --------------------------------
 ------         END        ------
 --------------------------------
 
+luaDir = debug.getinfo(1).source:match("@?(.*/)")					-- linux chemin vers le dossier lua
 curl = '/usr/bin/curl -m 5 -u domoticzUSER:domoticzPSWD '		 	-- (linux) ne pas oublier l'espace à la fin curl
 json = assert(loadfile(luaDir..'JSON.lua'))()						-- chargement du fichier JSON.lua
 
