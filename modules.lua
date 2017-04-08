@@ -33,7 +33,7 @@ smsGatewayIP = '192.168.22.171'
 smsGatewayPORT = '41047'
 smsGatewayURL = 'http://'..smsGatewayIP..':'..smsGatewayPORT
 
-admin = 'xxxxxxxx@gmail.com'
+admin = 'xxxx@gmail.com'
 
 --------------------------------
 ------         END        ------
@@ -135,6 +135,13 @@ function logToFile(fileName,data)
 	f:close()
 end  
 
+-- teste l'existance d'un fichier
+function file_exists(file)
+     local f = io.open(file, "rb")
+     if f then f:close() end
+     return f ~= nil
+end
+   
 -- encode du texte pour le passer dans une url
 function url_encode(str)
   if (str) then
@@ -384,8 +391,7 @@ function compute(pid)
 		end	
 
 		-- créattion du script python de calcul de dérivée
-		local f=io.open(luaDir..'derive.py',"r")
-		if f==nil then
+		if not file_exists(luaDir..'derive.py') then
 			f = assert(io.open(luaDir..'derive.py',"a"))
 			f:write('#!/usr/bin/python\n')
 			f:write('from sys import argv\n')
