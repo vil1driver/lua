@@ -1,8 +1,14 @@
 ﻿--[[
 
+
+bibliothèque de fonctions pour domoticz
+utiles à la réalisation de scripts d'automation en langage lua
+certaines fonctions ne foncteionneront pas sous windows.
+
+pour charger ce fichier et pouvoir en utiliser les fonctions
+
 --------------------------------------------------------------------------------------------------------
 
--- a copier en début de tout script
 
 -- chargement des modules
 dofile('home/pi/domoticz/scripts/lua/modules')
@@ -34,8 +40,8 @@ admin = 'xxxx@gmail.com'
 ------         END        ------
 --------------------------------
 
-luaDir = debug.getinfo(1).source:match("@?(.*/)")					-- linux chemin vers le dossier lua
-curl = '/usr/bin/curl -m 5 -u domoticzUSER:domoticzPSWD '		 	-- (linux) ne pas oublier l'espace à la fin curl
+luaDir = debug.getinfo(1).source:match("@?(.*/)")					-- chemin vers le dossier lua
+curl = '/usr/bin/curl -m 5 -u domoticzUSER:domoticzPSWD '		 	-- ne pas oublier l'espace à la fin curl
 json = assert(loadfile(luaDir..'JSON.lua'))()						-- chargement du fichier JSON.lua
 
 -- retourne l'heure actuelle ex: "12:45"
