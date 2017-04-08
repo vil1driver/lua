@@ -5,7 +5,7 @@
 -- a copier en début de tout script
 
 -- chargement des modules
-dofile("/home/pi/domoticz/scripts/lua/modules.lua")
+require('home/pi/domoticz/scripts/lua/modules')
 
 local debug = true  -- true pour voir les logs dans la console log Dz ou false pour ne pas les voir
 
