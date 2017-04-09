@@ -42,8 +42,13 @@ admin = 'xxxx@gmail.com'
 ------         END        ------
 --------------------------------
 
-luaDir = debug.getinfo(1).source:match("@?(.*/)")					-- chemin vers le dossier lua
-curl = '/usr/bin/curl -m 5 -u domoticzUSER:domoticzPSWD '		 	-- ne pas oublier l'espace à la fin curl
+-- chemin vers le dossier lua
+if (package.config:sub(1,1) == '/') then
+	luaDir = debug.getinfo(1).source:match("@?(.*/)")
+else
+	luaDir = string.gsub(debug.getinfo(1).source:match("@?(.*\\)"),'\\','\\\\')
+end
+curl = '/usr/bin/curl -m 5 -u domoticzUSER:domoticzPSWD '		 	-- ne pas oublier l'espace à la fin
 json = assert(loadfile(luaDir..'JSON.lua'))()						-- chargement du fichier JSON.lua
 
 -- retourne l'heure actuelle ex: "12:45"
