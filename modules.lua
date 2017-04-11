@@ -1,6 +1,7 @@
 ﻿--[[
 
 
+
 bibliothèque de fonctions pour domoticz
 utiles à la réalisation de scripts d'automation en langage lua
 
@@ -9,11 +10,12 @@ utiles à la réalisation de scripts d'automation en langage lua
 copier ce qui se trouve entre les 2 lignes ci dessous, en début de tout vos script
 pour charger ce fichier et pouvoir en utiliser les fonctions
 
+
 --------------------------------------------------------------------------------------------------------
 
 
 -- chargement des modules
-dofile('home/pi/domoticz/scripts/lua/modules')
+dofile('/home/pi/domoticz/scripts/lua/modules.lua')
 
 local debug = true  -- true pour voir les logs dans la console log Dz ou false pour ne pas les voir
 
@@ -36,11 +38,13 @@ domoticzPSWD = ''		-- mot de pass
 domoticzPASSCODE = ''	-- pour interrupteur protégés
 domoticzURL = 'http://'..domoticzIP..':'..domoticzPORT
 
-admin = 'xxxx@gmail.com'
+admin = 'xxxxxxx@gmail.com'
 
 --------------------------------
 ------         END        ------
 --------------------------------
+
+local startTime = os.clock()
 
 -- chemin vers le dossier lua
 if (package.config:sub(1,1) == '/') then
@@ -356,18 +360,10 @@ function compute(pid)
 ]]
 
 	time = os.date("*t")
-	-- création des variables mémoires si besoin
-	-- variable : somme des erreurs
-	if (uservariables['somme_erreurs_'..pid['zone']] == nil ) then
-		creaVar('somme_erreurs_'..pid['zone'],'0') 
-		log('PID '..pid['zone']..' intérrompu pour création de la variable somme_erreurs_'..pid['zone'],pid['debug'])
-		return commandArray
-	end
-	-- variable : 4 dernières températures
-	if (uservariables['lastTemps_'..pid['zone']] == nil ) then
-		local temp = getTemp(pid['sonde'])
-		creaVar('lastTemps_'..pid['zone'],string.rep(temp..";",3)..temp)
-		log('PID '..pid['zone']..' intérrompu pour création de la variable lastTemps_'..pid['zone'],pid['debug'])
+	-- création variable : 4 dernières erreurs
+	if (uservariables['PID_erreurs_'..pid['zone']] == nil ) then
+		creaVar('PID_erreurs_'..pid['zone'],'0;0;0;0') 
+		log('PID '..pid['zone']..' initialisation..',pid['debug'])
 		return commandArray
 	end
 
@@ -377,27 +373,24 @@ function compute(pid)
 	local inTime = (pid['debut'] < pid['fin'] and heure >= pid['debut'] and heure < pid['fin']) or
 					(pid['debut'] > pid['fin'] and (heure >= pid['debut'] or heure < pid['fin']))
 
-	-- à chaque cycle, memo temps
-	if (time.min%pid['cycle'] == 0) then
-		temp = getTemp(pid['sonde'])
-		temps = string.match(uservariables['lastTemps_'..pid['zone']],";([^%s]+)")..";"..temp
-		commandArray['Variable:lastTemps_'..pid['zone']] = temps
-	end
-	
 	-- si l'on veut chauffer
 	if ( otherdevices[pid['OnOff']] == 'On' and time.min%pid['cycle'] == 0 and inTime ) then
 
+		-- récupération température
+		local temp = getTemp(pid['sonde'])
 		-- récupération de la consigne
 		local consigne = tonumber(otherdevices_svalues[pid['thermostat']]) or pid['thermostat']
-		-- calcul erreur
+		-- calcul de l'erreur
 		local erreur = consigne-temp
+		-- maj des 4 dernières erreurs
+		local erreurs = string.match(uservariables['PID_erreurs_'..pid['zone']],";([^%s]+)")..";"..erreur
+		-- detail
+		err1,err2,err3,err4 = string.match(erreurs, "([+-]?%d+%.*%d*);([+-]?%d+%.*%d*);([+-]?%d+%.*%d*);([+-]?%d+%.*%d*)")
 		-- somme les erreurs (valeur négative interdite)
-		local somme_erreurs = constrain(tonumber(uservariables['somme_erreurs_'..pid['zone']]+erreur),0,255)
-		-- memo somme erreurs (1°C autour de la consigne pour limiter tout dérangement lié à l'environnement, soleil, aération, etc..)
-		if (math.abs(erreur) < 1) then
-			commandArray['Variable:somme_erreurs_'..pid['zone']] = tostring(somme_erreurs)
-		end	
-
+		local somme_erreurs = round(constrain(tonumber(err1+err2+err3+err4),0,255),1)
+		-- memo erreurs
+		commandArray['Variable:PID_erreurs_'..pid['zone']] = erreurs
+		
 		-- créattion du script python de calcul de dérivée
 		if not file_exists(luaDir..'derive.py') then
 			f = assert(io.open(luaDir..'derive.py',"a"))
@@ -407,13 +400,13 @@ function compute(pid)
 			f:write('x=[1,2,3,4]\n')
 			f:write('y=[float(i) for i in argv[1].split(\';\')]\n')
 			f:write('a,b=numpy.polyfit(x,y,1)\n')
-			f:write('print 0 - round(a,3)\n')
+			f:write('print round(a,3)\n')
 			f:close()
 			os.execute('chmod +x '..luaDir..'derive.py')
 		end
 		
 		-- calcul de la dérivée via le script python précédent
-		local delta_erreur = tonumber(os.capture(luaDir..'derive.py "'..temps..'"'))
+		local delta_erreur = tonumber(os.capture(luaDir..'derive.py "'..erreurs..'"'))
 	
 		-- calcul pid
 		local P = round(pid['Kp']*erreur,2)
@@ -486,10 +479,12 @@ function compute(pid)
 		end
 		
 		-- reset variable somme des erreurs au besoin
-		if (uservariables['somme_erreurs_'..pid['zone']] ~= '0') then
-			commandArray['Variable:somme_erreurs_'..pid['zone']] = '0'
+		if (uservariables['PID_erreurs_'..pid['zone']] ~= '0;0;0;0') then
+			commandArray['Variable:PID_erreurs_'..pid['zone']] = '0;0;0;0'
 		end
 		
 	end
 
 end
+
+--log(os.clock() - startTime)
