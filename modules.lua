@@ -38,7 +38,7 @@ domoticzPSWD = ''		-- mot de pass
 domoticzPASSCODE = ''	-- pour interrupteur protégés
 domoticzURL = 'http://'..domoticzIP..':'..domoticzPORT
 
-admin = 'xxxxxxx@gmail.com'
+admin = 'xxx@gmail.com'
 
 --------------------------------
 ------         END        ------
@@ -384,11 +384,11 @@ function compute(pid)
 		local erreur = consigne-temp
 		-- maj des 4 dernières erreurs
 		local erreurs = string.match(uservariables['PID_erreurs_'..pid['zone']],";([^%s]+)")..";"..erreur
-		-- detail
-		err1,err2,err3,err4 = string.match(erreurs, "([+-]?%d+%.*%d*);([+-]?%d+%.*%d*);([+-]?%d+%.*%d*);([+-]?%d+%.*%d*)")
 		-- somme les erreurs (valeur négative interdite)
-		local somme_erreurs = round(constrain(tonumber(err1+err2+err3+err4),0,255),1)
-		-- memo erreurs
+		local somme_erreurs = 0
+		erreurs:gsub("([+-]?%d+%.*%d*)",function(err) somme_erreurs = somme_erreurs + err end)
+		somme_erreurs = round(constrain(somme_erreurs,0,255),1)
+		-- sauvegarde erreurs
 		commandArray['Variable:PID_erreurs_'..pid['zone']] = erreurs
 		
 		-- créattion du script python de calcul de dérivée
