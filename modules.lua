@@ -38,7 +38,7 @@ domoticzPSWD = ''		-- mot de pass
 domoticzPASSCODE = ''	-- pour interrupteur protégés
 domoticzURL = 'http://'..domoticzIP..':'..domoticzPORT
 
-admin = 'xxx@gmail.com'
+admin = 'xxxx@gmail.com'
 
 --------------------------------
 ------         END        ------
@@ -214,8 +214,12 @@ end
 
 -- arrondire
 function round(num, dec)
-  local mult = 10^(dec or 0)
-  return math.floor(num * mult + 0.5) / mult
+   if num == 0 then
+	 return 0
+   else
+	 local mult = 10^(dec or 0)
+	 return math.floor(num * mult + 0.5) / mult
+   end
 end
 
 -- met le script en pause (fortement déconseillé)
@@ -367,7 +371,8 @@ function compute(pid)
 		return commandArray
 	end
 
-	local commande = 0
+	local somme_erreurs = 0
+	local heatTime
 
 	-- somme nous dans la plage horaire de chauffage autorisé
 	local inTime = (pid['debut'] < pid['fin'] and heure >= pid['debut'] and heure < pid['fin']) or
@@ -385,7 +390,6 @@ function compute(pid)
 		-- maj des 4 dernières erreurs
 		local erreurs = string.match(uservariables['PID_erreurs_'..pid['zone']],";([^%s]+)")..";"..erreur
 		-- somme les erreurs (valeur négative interdite)
-		local somme_erreurs = 0
 		erreurs:gsub("([+-]?%d+%.*%d*)",function(err) somme_erreurs = somme_erreurs + err end)
 		somme_erreurs = round(constrain(somme_erreurs,0,255),1)
 		-- sauvegarde erreurs
@@ -400,13 +404,13 @@ function compute(pid)
 			f:write('x=[1,2,3,4]\n')
 			f:write('y=[float(i) for i in argv[1].split(\';\')]\n')
 			f:write('a,b=numpy.polyfit(x,y,1)\n')
-			f:write('print round(a,3)\n')
+			f:write('print a\n')
 			f:close()
 			os.execute('chmod +x '..luaDir..'derive.py')
 		end
 		
 		-- calcul de la dérivée via le script python précédent
-		local delta_erreur = tonumber(os.capture(luaDir..'derive.py "'..erreurs..'"'))
+		local delta_erreur = round(tonumber(os.capture(luaDir..'derive.py "'..erreurs..'"')),3)
 	
 		-- calcul pid
 		local P = round(pid['Kp']*erreur,2)
@@ -414,10 +418,9 @@ function compute(pid)
 		local D = round(pid['Kd']*delta_erreur,2)
 		
 		-- calcul de la commande en %
-		commande = round(constrain(P+I+D,0,100))
+		local commande = round(constrain(P+I+D,0,100))
 				
 		-- calcul du temps de fonctionnement
-		local heatTime
 		if commande == 100 then
 			-- débordement de 20s pour ne pas couper avant recalcule
 			heatTime = (pid['cycle']*60)+20
@@ -454,8 +457,8 @@ function compute(pid)
 			log('Ki: '..pid['Ki'])
 			log('Kd: '..pid['Kd'])
 			log('erreur: '..erreur)
-			log('&#8721; erreur: '..somme_erreurs)
-			log('&#916; erreur: '..delta_erreur)
+			log('&#8721; erreurs: '..somme_erreurs)
+			log('&#916; erreurs: '..delta_erreur)
 			log('P: '..P)
 			log('I: '..I)
 			log('D: '..D)
