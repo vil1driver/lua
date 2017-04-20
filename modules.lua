@@ -433,7 +433,7 @@ function compute(pid)
 			heatTime = round(constrain(commande*pid['cycle']*0.6,pid['secu'],(pid['cycle']*60)-pid['secu']))
 		elseif commande == 0 then
 			-- coupure retardée
-			heatTime = constrain(pid['secu']-lastSeen(pid['radiateur']),3,pid['secu'])
+			heatTime = constrain(pid['secu']-lastSeen(pid['radiateur']),0,pid['secu'])
 		end
 		
 		-- action sur l'élément chauffant
