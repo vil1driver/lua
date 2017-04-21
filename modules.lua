@@ -38,7 +38,7 @@ domoticzPSWD = ''		-- mot de pass
 domoticzPASSCODE = ''	-- pour interrupteur protégés
 domoticzURL = 'http://'..domoticzIP..':'..domoticzPORT
 
-admin = 'xxxx@gmail.com'
+admin = 'xxxxx@gmail.com'
 
 --------------------------------
 ------         END        ------
@@ -370,14 +370,24 @@ function compute(pid)
 		log('PID '..pid['zone']..' initialisation..',pid['debug'])
 		return commandArray
 	end
-
+	
+	-- définition des variables locales
 	local somme_erreurs = 0
 	local heatTime
+	local marche
+	local arret
 
 	-- somme nous dans la plage horaire de chauffage autorisé
 	local inTime = (pid['debut'] < pid['fin'] and heure >= pid['debut'] and heure < pid['fin']) or
 					(pid['debut'] > pid['fin'] and (heure >= pid['debut'] or heure < pid['fin']))
 
+	-- définition des commandes marche/arrêt
+	if pid['invert'] then
+		marche = 'Off' ; arret = 'On'
+	else
+		marche = 'On' ; arret = 'Off'
+	end
+	
 	-- si l'on veut chauffer
 	if ( otherdevices[pid['OnOff']] == 'On' and time.min%pid['cycle'] == 0 and inTime ) then
 
@@ -432,22 +442,18 @@ function compute(pid)
 			heatTime = constrain(pid['secu']-lastSeen(pid['radiateur']),0,pid['secu'])
 		end
 		
+		-- AFTER n'aime pas 1 ou 2..
+		if heatTime == 1 or heatTime == 2 then
+			heatTime = 0
+		end	
+		
 		-- action sur l'élément chauffant
-		if pid['invert'] then
-			if heatTime > 0 then
-				commandArray[1]={[pid['radiateur']]='Off'}
-				commandArray[2]={[pid['radiateur']]='On AFTER '..heatTime}
-			else
-				commandArray[pid['radiateur']]='On'
-			end
+		if heatTime > 0 then
+			commandArray[1] = {[pid['radiateur']] = marche}
+			commandArray[2] = {[pid['radiateur']] = arret..' AFTER '..heatTime}
 		else
-			if heatTime > 0 then
-				commandArray[1]={[pid['radiateur']]='On'}
-				commandArray[2]={[pid['radiateur']]='Off AFTER '..heatTime}
-			else
-				commandArray[pid['radiateur']]='Off'
-			end			
-		end
+			commandArray[pid['radiateur']]=arret
+		end			
 	
 		-- journalisation
 		if pid['debug'] then
@@ -475,11 +481,7 @@ function compute(pid)
 	elseif ( (otherdevices[pid['OnOff']] == 'Off' or not inTime) and time.min%15 == 0 ) then
 
 		-- arrêt chauffage (renvoi commande systematique par sécurité)
-		if pid['invert'] then
-			commandArray[pid['radiateur']]='On AFTER '..constrain(pid['secu']-lastSeen(pid['radiateur']),0,pid['secu'])
-		else
-			commandArray[pid['radiateur']]='Off AFTER '..constrain(pid['secu']-lastSeen(pid['radiateur']),0,pid['secu'])
-		end
+		commandArray[pid['radiateur']] = arret..' AFTER '..constrain(pid['secu']-lastSeen(pid['radiateur']),3,pid['secu'])
 		
 		-- reset variable somme des erreurs au besoin
 		if (uservariables['PID_erreurs_'..pid['zone']] ~= '0;0;0;0') then
