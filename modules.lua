@@ -38,8 +38,7 @@ domoticzPSWD = ''		-- mot de pass
 domoticzPASSCODE = ''	-- pour interrupteur protégés
 domoticzURL = 'http://'..domoticzIP..':'..domoticzPORT
 
-
-admin = 'xxxxx@gmail.com'
+admin = 'xxxx@gmail.com'
 
 --------------------------------
 ------         END        ------
@@ -371,9 +370,6 @@ function compute(pid)
 		log('PID '..pid['zone']..' initialisation..',pid['debug'])
 		return commandArray
 	end
-	
-	-- mini AFTER : 3s
-	pid['secu'] = constrain(pid['secu'],3,pid['secu'])
 
 	local somme_erreurs = 0
 	local heatTime
@@ -433,7 +429,7 @@ function compute(pid)
 			heatTime = round(constrain(commande*pid['cycle']*0.6,pid['secu'],(pid['cycle']*60)-pid['secu']))
 		elseif commande == 0 then
 			-- coupure retardée
-			heatTime = constrain(pid['secu']-lastSeen(pid['radiateur']),3,pid['secu'])
+			heatTime = constrain(pid['secu']-lastSeen(pid['radiateur']),0,pid['secu'])
 		end
 		
 		-- action sur l'élément chauffant
@@ -474,23 +470,21 @@ function compute(pid)
 			log('commande: '..commande..'% ('..heatTime..'s)')
 			log('----+++------------------------------+++----')
 		end	
-
 		
 	-- toutes les 15 minutes, si on ne veut pas chauffer
 	elseif ( (otherdevices[pid['OnOff']] == 'Off' or not inTime) and time.min%15 == 0 ) then
 
 		-- arrêt chauffage (renvoi commande systematique par sécurité)
 		if pid['invert'] then
-			commandArray[pid['radiateur']]='On AFTER '..constrain(pid['secu']-lastSeen(pid['radiateur']),3,pid['secu'])
+			commandArray[pid['radiateur']]='On AFTER '..constrain(pid['secu']-lastSeen(pid['radiateur']),0,pid['secu'])
 		else
-			commandArray[pid['radiateur']]='Off AFTER '..constrain(pid['secu']-lastSeen(pid['radiateur']),3,pid['secu'])
+			commandArray[pid['radiateur']]='Off AFTER '..constrain(pid['secu']-lastSeen(pid['radiateur']),0,pid['secu'])
 		end
 		
 		-- reset variable somme des erreurs au besoin
 		if (uservariables['PID_erreurs_'..pid['zone']] ~= '0;0;0;0') then
 			commandArray['Variable:PID_erreurs_'..pid['zone']] = '0;0;0;0'
 		end
-
 		
 	end
 
