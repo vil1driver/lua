@@ -411,7 +411,7 @@ function pushbullet(title,body)
 	local settings = assert(io.popen(curl..'-u '..domoticzUSER..':'..domoticzPSWD..' "'..domoticzURL..'/json.htm?type=settings"'))
 	local list = settings:read('*all')
 	settings:close()
-	local pushbullet_key = json:decode(list).result[1].PushbulletAPI
+	local pushbullet_key = json:decode(list).PushbulletAPI
 	os.execute(curl..'-H \'Access-Token:'..pushbullet_key..'\' -H \'Content-Type:application/json\' --data-binary \'{"title":"'..title..'","body":"'..body..'","type":"note"}\' -X POST "https://api.pushbullet.com/v2/pushes"')
 end
 
