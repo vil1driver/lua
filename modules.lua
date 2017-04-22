@@ -38,11 +38,8 @@ domoticzPSWD = ''		-- mot de pass
 domoticzPASSCODE = ''	-- pour interrupteur protégés
 domoticzURL = 'http://'..domoticzIP..':'..domoticzPORT
 
--- pushbullet
-pushbullet_key = 'xxxxxxxxxxxxxxxxxxxxxx'
 
-
-admin = 'xxxxxxxxxxxxx@gmail.com'
+admin = 'xxxxx@gmail.com'
 
 --------------------------------
 ------         END        ------
@@ -339,6 +336,10 @@ end
 -- usage:
 -- pushbullet('test','ceci est un message test')
 function pushbullet(title,body)
+	local settings = assert(io.popen(curl..'-u '..domoticzUSER..':'..domoticzPSWD..' "'..domoticzURL..'/json.htm?type=settings"'))
+	local list = settings:read('*all')
+	settings:close()
+	local pushbullet_key = json:decode(list).result[1].PushbulletAPI
 	os.execute(curl..'-H \'Access-Token:'..pushbullet_key..'\' -H \'Content-Type:application/json\' --data-binary \'{"title":"'..title..'","body":"'..body..'","type":"note"}\' -X POST "https://api.pushbullet.com/v2/pushes"')
 end
 
