@@ -38,7 +38,11 @@ domoticzPSWD = ''		-- mot de pass
 domoticzPASSCODE = ''	-- pour interrupteur protégés
 domoticzURL = 'http://'..domoticzIP..':'..domoticzPORT
 
-admin = 'xxxxx@gmail.com'
+-- pushbullet
+pushbullet_key = 'xxxxxxxxxxxxxxxxxxxxxx'
+
+
+admin = 'xxxxxxxxxxxxx@gmail.com'
 
 --------------------------------
 ------         END        ------
@@ -46,14 +50,20 @@ admin = 'xxxxx@gmail.com'
 
 local startTime = os.clock()
 
--- chemin vers le dossier lua
+-- chemin vers le dossier lua et curl
 if (package.config:sub(1,1) == '/') then
+	-- system linux
 	luaDir = debug.getinfo(1).source:match("@?(.*/)")
+	curl = '/usr/bin/curl -m 15 '		 							-- ne pas oublier l'espace à la fin
 else
+	-- system windows
 	luaDir = string.gsub(debug.getinfo(1).source:match("@?(.*\\)"),'\\','\\\\')
+	-- download curl : https://bintray.com/vszakats/generic/download_file?file_path=curl-7.54.0-win32-mingw.7z
+	curl = 'c:\\Programs\\Curl\\curl.exe '		 					-- ne pas oublier l'espace à la fin
 end
-curl = '/usr/bin/curl -m 5 -u domoticzUSER:domoticzPSWD '		 	-- ne pas oublier l'espace à la fin
-json = assert(loadfile(luaDir..'JSON.lua'))()						-- chargement du fichier JSON.lua
+
+-- chargement du fichier JSON.lua
+json = assert(loadfile(luaDir..'JSON.lua'))()
 
 -- retourne l'heure actuelle ex: "12:45"
 heure = string.sub(os.date("%X"), 1, 5)
@@ -197,7 +207,7 @@ function lastSeen(device)
 	seconds = string.sub(s, 18, 19)
 	t1 = os.time()
 	t2 = os.time{year=year, month=month, day=day, hour=hour, min=minutes, sec=seconds}
-	difference = os.difftime (t1, t2)
+	difference = os.difftime(t1, t2)
 	return difference
 end
 
@@ -233,7 +243,7 @@ end
 -- usage
 -- creaVar('toto','10') -- pour créer une variable nommée toto comprenant la valeur 10
 function creaVar(name,value)
-	os.execute(curl..'"'..domoticzURL..'/json.htm?type=command&param=saveuservariable&vname='..url_encode(name)..'&vtype=2&vvalue='..url_encode(value)..'" &')
+	os.execute(curl..'-u '..domoticzUSER..':'..domoticzPSWD..' "'..domoticzURL..'/json.htm?type=command&param=saveuservariable&vname='..url_encode(name)..'&vtype=2&vvalue='..url_encode(value)..'" &')
 end
 
 -- envoie dans un capteur text une chaîne de caractères
@@ -251,7 +261,7 @@ end
 -- print(lampe.Status)
 -- etc..
 function jsonInfos(device)
-	local rid = assert(io.popen(curl..'"'..domoticzURL..'/json.htm?type=devices&rid='..otherdevices_idx[device]..'"'))
+	local rid = assert(io.popen(curl..'-u '..domoticzUSER..':'..domoticzPSWD..' "'..domoticzURL..'/json.htm?type=devices&rid='..otherdevices_idx[device]..'"'))
 	local list = rid:read('*all')
 	rid:close()
 	return json:decode(list).result[1]
@@ -281,21 +291,63 @@ function ReverseTable(t)
     return reversedTable
 end
 
+-- affiche le contenu d'une table
+function print_r( t )
+    local print_r_cache={}
+    local function sub_print_r(t,indent)
+        if (print_r_cache[tostring(t)]) then
+            print(indent.."*"..tostring(t))
+        else
+            print_r_cache[tostring(t)]=true
+            if (type(t)=="table") then
+                for pos,val in pairs(t) do
+                    if (type(val)=="table") then
+                        print(indent.."["..pos.."] => "..tostring(t).." {")
+                        sub_print_r(val,indent..string.rep(" ",string.len(pos)+8))
+                        print(indent..string.rep(" ",string.len(pos)+6).."}")
+                    elseif (type(val)=="string") then
+                        print(indent.."["..pos..'] => "'..val..'"')
+                    else
+                        print(indent.."["..pos.."] => "..tostring(val))
+                    end
+                end
+            else
+                print(indent..tostring(t))
+            end
+        end
+    end
+    if (type(t)=="table") then
+        print(tostring(t).." {")
+        sub_print_r(t,"  ")
+        print("}")
+    else
+        sub_print_r(t,"  ")
+    end
+    print()
+end
+
 -- retourne la table des derniers log (première ligne = dernier log)
 function lastLogEntry()
-	local rid = assert(io.popen(curl..'"'..domoticzURL..'/json.htm?type=command&param=getlog"'))
+	local rid = assert(io.popen(curl..'-u '..domoticzUSER..':'..domoticzPSWD..' "'..domoticzURL..'/json.htm?type=command&param=getlog"'))
 	local list = rid:read('*all')
 	rid:close()
 	local tableau = json:decode(list).result
 	return ReverseTable(tableau)
 end
 
+-- notification pushbullet
+-- usage:
+-- pushbullet('test','ceci est un message test')
+function pushbullet(title,body)
+	os.execute(curl..'-H \'Access-Token:'..pushbullet_key..'\' -H \'Content-Type:application/json\' --data-binary \'{"title":"'..title..'","body":"'..body..'","type":"note"}\' -X POST "https://api.pushbullet.com/v2/pushes"')
+end
+
 -- switch On a device and set level if dimmmable
 function switchOn(device,level)
 	if level ~= nil then
-		os.execute(curl..'"'..domoticzURL..'/json.htm?type=command&param=switchlight&idx='..otherdevices_idx[device]..'&switchcmd=Set%20Level&level='..level..'&passcode='..domoticzPASSCODE..'" &')
+		os.execute(curl..'-u '..domoticzUSER..':'..domoticzPSWD..' "'..domoticzURL..'/json.htm?type=command&param=switchlight&idx='..otherdevices_idx[device]..'&switchcmd=Set%20Level&level='..level..'&passcode='..domoticzPASSCODE..'" &')
 	else	
-		os.execute(curl..'"'..domoticzURL..'/json.htm?type=command&param=switchlight&idx='..otherdevices_idx[device]..'&switchcmd=On&passcode='..domoticzPASSCODE..'" &')
+		os.execute(curl..'-u '..domoticzUSER..':'..domoticzPSWD..' "'..domoticzURL..'/json.htm?type=command&param=switchlight&idx='..otherdevices_idx[device]..'&switchcmd=On&passcode='..domoticzPASSCODE..'" &')
 	end	
 end
 
@@ -307,22 +359,22 @@ end
 
 -- switch Off a device
 function switchOff(device)
-	os.execute(curl..'"'..domoticzURL..'/json.htm?type=command&param=switchlight&idx='..otherdevices_idx[device]..'&switchcmd=Off&passcode='..domoticzPASSCODE..'" &')
+	os.execute(curl..'-u '..domoticzUSER..':'..domoticzPSWD..' "'..domoticzURL..'/json.htm?type=command&param=switchlight&idx='..otherdevices_idx[device]..'&switchcmd=Off&passcode='..domoticzPASSCODE..'" &')
 end
 
 -- Toggle a device
 function switch(device)
-	os.execute(curl..'"'..domoticzURL..'/json.htm?type=command&param=switchlight&idx='..otherdevices_idx[device]..'&switchcmd=Toggle&passcode='..domoticzPASSCODE..'" &')
+	os.execute(curl..'-u '..domoticzUSER..':'..domoticzPSWD..' "'..domoticzURL..'/json.htm?type=command&param=switchlight&idx='..otherdevices_idx[device]..'&switchcmd=Toggle&passcode='..domoticzPASSCODE..'" &')
 end
 
 -- switch On a group or scene
 function groupOn(device)
-	os.execute(curl..'"'..domoticzURL..'/json.htm?type=command&param=switchscene&idx='..otherdevices_scenesgroups_idx[device]..'&switchcmd=On&passcode='..domoticzPASSCODE..'" &')
+	os.execute(curl..'-u '..domoticzUSER..':'..domoticzPSWD..' "'..domoticzURL..'/json.htm?type=command&param=switchscene&idx='..otherdevices_scenesgroups_idx[device]..'&switchcmd=On&passcode='..domoticzPASSCODE..'" &')
 end
 
 -- switch Off a group
 function groupOff(device)
-	os.execute(curl..'"'..domoticzURL..'/json.htm?type=command&param=switchscene&idx='..otherdevices_scenesgroups_idx[device]..'&switchcmd=Off&passcode='..domoticzPASSCODE..'" &')
+	os.execute(curl..'-u '..domoticzUSER..':'..domoticzPSWD..' "'..domoticzURL..'/json.htm?type=command&param=switchscene&idx='..otherdevices_scenesgroups_idx[device]..'&switchcmd=Off&passcode='..domoticzPASSCODE..'" &')
 end
 
 -- régulation chauffage (PID)
