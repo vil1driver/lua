@@ -14,7 +14,7 @@ pour charger ce fichier et pouvoir en utiliser les fonctions
 --------------------------------------------------------------------------------------------------------
 
 
--- chargement des modules
+-- chargement des modules (http://easydomoticz.com/forum/viewtopic.php?f=17&t=3940)
 dofile('/home/pi/domoticz/scripts/lua/modules.lua')
 
 local debug = true  -- true pour voir les logs dans la console log Dz ou false pour ne pas les voir
@@ -38,13 +38,17 @@ domoticzPSWD = ''		-- mot de pass
 domoticzPASSCODE = ''	-- pour interrupteur protégés
 domoticzURL = 'http://'..domoticzIP..':'..domoticzPORT
 
-admin = 'xxxxx@gmail.com'
+-- passerelle SMS
+smsGatewayIP = '192.168.22.171'
+smsGatewayPORT = '41047'
+smsGatewayURL = 'http://'..smsGatewayIP..':'..smsGatewayPORT
+
+admin = 'xxxxxxxxxxxxx'
 
 --------------------------------
 ------         END        ------
 --------------------------------
 
-local startTime = os.clock()
 
 -- chemin vers le dossier lua et curl
 if (package.config:sub(1,1) == '/') then
@@ -85,11 +89,58 @@ nightTime = timeofday['Nighttime']
 -- température
 function getTemp(device)
 	return round(tonumber(otherdevices_temperature[device]),1)
+end
+
+-- vérifie s'il y a eu changement d'état
+function stateChange(device)
+	if (uservariables['lastState_'..device] == nil) then
+		creaVar('lastState_'..device,otherdevices[device])
+		log('stateChange : création variable manquante lastState_'..device,debug)
+		return false
+	elseif (devicechanged[device] == nil) then
+		return false
+	elseif (devicechanged[device] == uservariables['lastState_'..device]) then
+		return false
+	else
+		updateVar('lastState_'..device,otherdevices[device])
+		return true
+	end
 end	
 
+-- convertion degrés en direction cardinale
+function wind_cardinals(deg)
+	local cardinalDirections = {
+		['N'] = {348.75, 360},
+		['N'] = {0, 11.25},
+		['NNE'] = {11.25, 33.75},
+		['NE'] = {33.75, 56.25},
+		['ENE'] = {56.25, 78.75},
+		['E'] = {78.75, 101.25},
+		['ESE'] = {101.25, 123.75},
+		['SE'] = {123.75, 146.25},
+		['SSE'] = {146.25, 168.75},
+		['S'] = {168.75, 191.25},
+		['SSW'] = {191.25, 213.75},
+		['SW'] = {213.75, 236.25},
+		['WSW'] = {236.25, 258.75},
+		['W'] = {258.75, 281.25},
+		['WNW'] = {281.25, 303.75},
+		['NW'] = {303.75, 326.25},
+		['NNW'] = {326.25, 348.75}
+		}
+	local cardinal
+	for dir, angle in pairs(cardinalDirections) do
+		if (deg >= angle[1] and deg < angle[2]) then
+			cardinal = dir
+			break
+		end	
+	end
+	return cardinal
+end
+	
 -- dump all variables supplied to the script
 -- usage
--- LogVariables(_G,0,'');
+-- LogVariables(_G,0,'')
 function LogVariables(x,depth,name)
     for k,v in pairs(x) do
         if (depth>0) or ((string.find(k,'device')~=nil) or (string.find(k,'variable')~=nil) or 
@@ -102,7 +153,7 @@ function LogVariables(x,depth,name)
     end
 end
 
--- os.execute output or web page content return
+-- os.execute() output or web page content return
 -- usage
 -- local resultat = os.capture(cmd , true)
 -- print('resultat: ' .. resultat)
@@ -118,7 +169,7 @@ function os.capture(cmd, raw)
 end
 
 -- retourne le type de la variable
--- 'string' ou 'number'
+-- 'string' , 'number' , 'table'
 function typeof(var)
     local _type = type(var);
     if(_type ~= "table" and _type ~= "userdata") then
@@ -194,17 +245,10 @@ end
 
 -- retourne le temps en seconde depuis la dernière maj du péréphérique
 function lastSeen(device)
-	s = otherdevices_lastupdate[device] or device
-	year = string.sub(s, 1, 4)
-	month = string.sub(s, 6, 7)
-	day = string.sub(s, 9, 10)
-	hour = string.sub(s, 12, 13)
-	minutes = string.sub(s, 15, 16)
-	seconds = string.sub(s, 18, 19)
-	t1 = os.time()
-	t2 = os.time{year=year, month=month, day=day, hour=hour, min=minutes, sec=seconds}
-	difference = os.difftime(t1, t2)
-	return difference
+  timestamp = otherdevices_lastupdate[device] or device
+  y, m, d, H, M, S = timestamp:match("(%d+)-(%d+)-(%d+) (%d+):(%d+):(%d+)")
+  difference = os.difftime(os.time(), os.time{year=y, month=m, day=d, hour=H, min=M, sec=S})
+  return difference
 end
 
 -- contraindre
@@ -240,6 +284,11 @@ end
 -- creaVar('toto','10') -- pour créer une variable nommée toto comprenant la valeur 10
 function creaVar(name,value)
 	os.execute(curl..'-u '..domoticzUSER..':'..domoticzPSWD..' "'..domoticzURL..'/json.htm?type=command&param=saveuservariable&vname='..url_encode(name)..'&vtype=2&vvalue='..url_encode(value)..'" &')
+end
+
+-- update an existing variable
+function updateVar(name,value)
+	os.execute(curl..'-u '..domoticzUSER..':'..domoticzPSWD..' "'..domoticzURL..'/json.htm?type=command&param=updateuservariable&vname='..url_encode(name)..'&vtype=2&vvalue='..url_encode(value)..'" &')
 end
 
 -- envoie dans un capteur text une chaîne de caractères
@@ -450,12 +499,11 @@ function groupOff(device)
 	os.execute(curl..'-u '..domoticzUSER..':'..domoticzPSWD..' "'..domoticzURL..'/json.htm?type=command&param=switchscene&idx='..otherdevices_scenesgroups_idx[device]..'&switchcmd=Off&passcode='..domoticzPASSCODE..'" &')
 end
 
--- régulation chauffage (PID)
-function compute(pid)
 
+-- régulation chauffage (PID)
 --[[
 
-	-- script exemple
+	usage:
 	
 	local pid={}
 	pid['debug'] = true								-- true pour voir les logs dans la console log Dz ou false pour ne pas les voir
@@ -487,7 +535,7 @@ function compute(pid)
 	return commandArray
 
 ]]
-
+function compute(pid)
 	time = os.date("*t")
 	-- création variable : 4 dernières erreurs
 	if (uservariables['PID_erreurs_'..pid['zone']] == nil ) then
@@ -601,6 +649,7 @@ function compute(pid)
 			log('commande: '..commande..'% ('..heatTime..'s)')
 			log('----+++------------------------------+++----')
 		end	
+
 		
 	-- toutes les 15 minutes, si on ne veut pas chauffer
 	elseif ( (otherdevices[pid['OnOff']] == 'Off' or not inTime) and time.min%15 == 0 ) then
@@ -613,8 +662,7 @@ function compute(pid)
 			commandArray['Variable:PID_erreurs_'..pid['zone']] = '0;0;0;0'
 		end
 		
+		
 	end
 
 end
-
---log(os.clock() - startTime)
