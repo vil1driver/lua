@@ -103,7 +103,7 @@ function stateChange(device)
 		return false
 	else
 		updateVar('lastState_'..device,otherdevices[device])
-		return true
+		return otherdevices[device]
 	end
 end	
 
