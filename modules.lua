@@ -485,7 +485,7 @@ function setColorAndBrightness(device, color, brightness)
 	local brightness = "&brightness="..brightness
 	local iswhite = "&iswhite=false"
 	api = api..idx..color..brightness..iswhite
-	os.execute(curl..'-u '..domoticzUSER..':'..domoticzPSWD..' "'..domoticzURL..api.." &')
+	os.execute(curl..'-u '..domoticzUSER..':'..domoticzPSWD..' "'..domoticzURL..api..'" &')
 end
 
 -- switch On a group or scene
