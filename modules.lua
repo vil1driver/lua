@@ -30,7 +30,7 @@ local debug = true  -- true pour voir les logs dans la console log Dz ou false p
 ------ 	  USER SETTINGS	  ------
 --------------------------------
 
-require "./settings.lua"
+dofile('/home/pi/domoticz/scripts/lua/settings.lua')
 
 --------------------------------
 ------         END        ------
