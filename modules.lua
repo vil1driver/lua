@@ -476,6 +476,18 @@ function switch(device)
 	os.execute(curl..'-u '..domoticzUSER..':'..domoticzPSWD..' "'..domoticzURL..'/json.htm?type=command&param=switchlight&idx='..otherdevices_idx[device]..'&switchcmd=Toggle&passcode='..domoticzPASSCODE..'" &')
 end
 
+-- Setup a color & brightness of an RGB(W) light
+-- API : https://www.domoticz.com/wiki/Domoticz_API/JSON_URL%27s#Set_a_dimmable_light_to_a_certain_level
+function setColorAndBrightness(device, color, brightness)
+	local api = "/json.htm?type=command&param=setcolbrightnessvalue"
+	local idx = "&idx="..otherdevices_idx[device]
+	local color = "&hue="..color
+	local brightness = "&brightness="..brightness
+	local iswhite = "&iswhite=false"
+	api = api..idx..color..brightness..iswhite
+	os.execute(curl..'-u '..domoticzUSER..':'..domoticzPSWD..' "'..domoticzURL..api.." &')
+end
+
 -- switch On a group or scene
 function groupOn(device)
 	os.execute(curl..'-u '..domoticzUSER..':'..domoticzPSWD..' "'..domoticzURL..'/json.htm?type=command&param=switchscene&idx='..otherdevices_scenesgroups_idx[device]..'&switchcmd=On&passcode='..domoticzPASSCODE..'" &')
