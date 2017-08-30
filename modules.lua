@@ -476,6 +476,15 @@ function switch(device)
 	os.execute(curl..'-u '..domoticzUSER..':'..domoticzPSWD..' "'..domoticzURL..'/json.htm?type=command&param=switchlight&idx='..otherdevices_idx[device]..'&switchcmd=Toggle&passcode='..domoticzPASSCODE..'" &')
 end
 
+-- Set switch to Stop
+function switchStop(device)
+	local api = "/json.htm?type=command&param=switchlight&switchcmd=Stop"
+	local idx = "&idx="..otherdevices_idx[device]
+	local passcode = "&passcode="..domoticzPASSCODE
+	api = api..idx..passcode
+	os.execute(curl..'-u '..domoticzUSER..':'..domoticzPSWD..' "'..domoticzURL..api..'" &')
+end
+
 -- Setup a color & brightness of an RGB(W) light
 -- API : https://www.domoticz.com/wiki/Domoticz_API/JSON_URL%27s#Set_a_dimmable_light_to_a_certain_level
 function setColorAndBrightness(device, color, brightness)
