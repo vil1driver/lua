@@ -486,7 +486,7 @@ function switchStop(device)
 end
 
 -- Setup a color & brightness of an RGB(W) light
--- API : https://www.domoticz.com/wiki/Domoticz_API/JSON_URL%27s#Set_a_dimmable_light_to_a_certain_level
+-- API : https://www.domoticz.com/wiki/Domoticz_API/JSON_URL%27s#Set_an_RGB.28W.29_light_to_a_certain_color_and_brightness
 function setColorAndBrightness(device, color, brightness)
 	local api = "/json.htm?type=command&param=setcolbrightnessvalue"
 	local idx = "&idx="..otherdevices_idx[device]
