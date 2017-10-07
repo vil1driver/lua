@@ -1,4 +1,4 @@
-﻿--[[
+--[[
 
 
 
@@ -43,7 +43,7 @@ smsGatewayIP = '192.168.22.171'
 smsGatewayPORT = '41047'
 smsGatewayURL = 'http://'..smsGatewayIP..':'..smsGatewayPORT
 
-admin = 'xxxxxxxxxxxxx'
+admin = 'xxxxxxxxxx@gmail.com'
 
 --------------------------------
 ------         END        ------
@@ -81,6 +81,11 @@ coucherSoleil = string.sub(os.date("!%X",60*timeofday['SunsetInMinutes']), 1, 5)
 days = {"dimanche","lundi","mardi","mercredi","jeudi","vendredi","samedi"}
 jour = days[(os.date("%w")+1)]
 
+-- est valide si la semaine est paire
+-- usage :
+-- if semainePaire then ..
+semainePaire = os.date("%W")%2 == 0
+
 -- il fait jour
 dayTime = timeofday['Daytime']
 -- il fait nuit
@@ -89,6 +94,11 @@ nightTime = timeofday['Nighttime']
 -- température
 function getTemp(device)
 	return round(tonumber(otherdevices_temperature[device]),1)
+end
+
+-- set setpoint (faster way)
+function setPoint(device,value)
+	os.execute(curl..'-u '..domoticzUSER..':'..domoticzPSWD..' "'..domoticzURL..'/json.htm?type=command&param=udevice&idx='..otherdevices_idx[device]..'&nvalue=0&svalue='..value..'" &')
 end
 
 -- vérifie s'il y a eu changement d'état
@@ -509,18 +519,11 @@ end
 	pid['debug'] = true								-- true pour voir les logs dans la console log Dz ou false pour ne pas les voir
 	pid['zone'] = 'salon'							-- nom de la zone pour affichage dans les logs et ditinction de variables
 	pid['sonde'] = 'salon' 							-- Nom de la sonde de température
-	pid['OnOff'] = 'chauffage' 						-- Nom de l'interrupteur virtuel de mise en route
+	pid['OnOff'] = 'chauffage' 						-- Nom de l'interrupteur virtuel de mise en route (hivers/été)
 	pid['thermostat'] = 'th_salon' 					-- consigne ou 'nom' de l'interrupteur virtuel de thermostat
 	-- actionneur
 	pid['radiateur'] = 'radiateur salon' 			-- Nom de l'interrupteur de chauffage
 	pid['invert'] = false							-- si On et Off doivent être inversé ou non
-
-	-- période de chauffage
-	-- pour une période de 24h,
-	-- mettre debut = '00:00' et fin = '24:00'
-	-- bien respecter le format 'hh:mm'
-	pid['debut'] = 	'00:00'
-	pid['fin'] = 	'24:00'
 
 	-- PID -- 
 	pid['Kp'] = 70 									-- Coefficient proportionnel 
@@ -537,22 +540,35 @@ end
 ]]
 function compute(pid)
 	time = os.date("*t")
-	-- création variable : 4 dernières erreurs
-	if (uservariables['PID_erreurs_'..pid['zone']] == nil ) then
-		creaVar('PID_erreurs_'..pid['zone'],'0;0;0;0') 
+	local init = 0
+	
+	-- récupération température
+	local temp = getTemp(pid['sonde'])
+	
+	-- création variable : 4 dernières températures
+	if (uservariables['PID_temps_'..pid['zone']] == nil ) then
+		creaVar('PID_temps_'..pid['zone'],string.rep(temp..';',3)..temp) 
+		init = 1
+	end
+	-- création variable : intégrale
+	if (uservariables['PID_integrale_'..pid['zone']] == nil ) then
+		creaVar('PID_integrale_'..pid['zone'],'0')
+		init = 1
+	end
+	
+	if init == 1 then
 		log('PID '..pid['zone']..' initialisation..',pid['debug'])
 		return commandArray
 	end
 	
 	-- définition des variables locales
+	local moy_erreur = 0
+	local n = 1
 	local somme_erreurs = 0
 	local heatTime
 	local marche
 	local arret
-
-	-- somme nous dans la plage horaire de chauffage autorisé
-	local inTime = (pid['debut'] < pid['fin'] and heure >= pid['debut'] and heure < pid['fin']) or
-					(pid['debut'] > pid['fin'] and (heure >= pid['debut'] or heure < pid['fin']))
+	local tmp = {}
 
 	-- définition des commandes marche/arrêt
 	if pid['invert'] then
@@ -561,108 +577,115 @@ function compute(pid)
 		marche = 'On' ; arret = 'Off'
 	end
 	
-	-- si l'on veut chauffer
-	if ( otherdevices[pid['OnOff']] == 'On' and time.min%pid['cycle'] == 0 and inTime ) then
+	-- à chaque cycle
+	if ( time.min%pid['cycle'] == 0 ) then
+	
+		-- maj des 4 dernières temps
+		local temps = string.match(uservariables['PID_temps_'..pid['zone']],";([^%s]+)")..";"..temp
+		commandArray['Variable:PID_temps_'..pid['zone']] = temps
+		
+		-- si l'on veut chauffer
+		if ( otherdevices[pid['OnOff']] == 'On' ) then
 
-		-- récupération température
-		local temp = getTemp(pid['sonde'])
-		-- récupération de la consigne
-		local consigne = tonumber(otherdevices_svalues[pid['thermostat']]) or pid['thermostat']
-		-- calcul de l'erreur
-		local erreur = consigne-temp
-		-- maj des 4 dernières erreurs
-		local erreurs = string.match(uservariables['PID_erreurs_'..pid['zone']],";([^%s]+)")..";"..erreur
-		-- somme les erreurs (valeur négative interdite)
-		erreurs:gsub("([+-]?%d+%.*%d*)",function(err) somme_erreurs = somme_erreurs + err end)
-		somme_erreurs = round(constrain(somme_erreurs,0,255),1)
-		-- sauvegarde erreurs
-		commandArray['Variable:PID_erreurs_'..pid['zone']] = erreurs
-		
-		-- créattion du script python de calcul de dérivée
-		if not file_exists(luaDir..'derive.py') then
-			f = assert(io.open(luaDir..'derive.py',"a"))
-			f:write('#!/usr/bin/python\n')
-			f:write('from sys import argv\n')
-			f:write('import numpy\n')
-			f:write('x=[1,2,3,4]\n')
-			f:write('y=[float(i) for i in argv[1].split(\';\')]\n')
-			f:write('a,b=numpy.polyfit(x,y,1)\n')
-			f:write('print a\n')
-			f:close()
-			os.execute('chmod +x '..luaDir..'derive.py')
-		end
-		
-		-- calcul de la dérivée via le script python précédent
-		local delta_erreur = round(tonumber(os.capture(luaDir..'derive.py "'..erreurs..'"')),3)
-	
-		-- calcul pid
-		local P = round(pid['Kp']*erreur,2)
-		local I = round(pid['Ki']*somme_erreurs,2)
-		local D = round(pid['Kd']*delta_erreur,2)
-		
-		-- calcul de la commande en %
-		local commande = round(constrain(P+I+D,0,100))
-				
-		-- calcul du temps de fonctionnement
-		if commande == 100 then
-			-- débordement de 20s pour ne pas couper avant recalcule
-			heatTime = (pid['cycle']*60)+20
-		elseif commande > 0 then
-			-- secu mini maxi
-			heatTime = round(constrain(commande*pid['cycle']*0.6,pid['secu'],(pid['cycle']*60)-pid['secu']))
-		elseif commande == 0 then
-			-- coupure retardée
-			heatTime = constrain(pid['secu']-lastSeen(pid['radiateur']),0,pid['secu'])
-		end
-		
-		-- AFTER n'aime pas 1 ou 2..
-		if heatTime == 1 or heatTime == 2 then
-			heatTime = 0
-		end	
-		
-		-- action sur l'élément chauffant
-		if heatTime > 0 then
-			commandArray[1] = {[pid['radiateur']] = marche}
-			commandArray[2] = {[pid['radiateur']] = arret..' AFTER '..heatTime}
-		else
-			commandArray[pid['radiateur']]=arret
-		end			
-	
-		-- journalisation
-		if pid['debug'] then
-			log('----+++--- PID zone: '..string.upper(pid['zone'])..' ---+++--------')
-			log('température: '..temp..'°C pour '..consigne..'°C souhaité')
-			log('Kp: '..pid['Kp'])
-			log('Ki: '..pid['Ki'])
-			log('Kd: '..pid['Kd'])
-			log('erreur: '..erreur)
-			log('&#8721; erreurs: '..somme_erreurs)
-			log('&#916; erreurs: '..delta_erreur)
-			log('P: '..P)
-			log('I: '..I)
-			log('D: '..D)
-			log('cycle: '..pid['cycle']..'min (sécu: '..pid['secu']..'s)')
-			-- avertissement si secu dépasse 1/4 du cycle
-			if ((100*pid['secu'])/(60*pid['cycle'])>25) then
-				warn('sécu trop importante, ralonger durée de cycle..')
+			-- récupération de la consigne
+			local consigne = tonumber(otherdevices_svalues[pid['thermostat']]) or pid['thermostat']
+			-- calcul de l'erreur
+			local erreur = consigne-temp
+			-- calcul intégrale auto consumée et moyenne erreur glissante
+			temps:gsub("([+-]?%d+%.*%d*)",function(t)
+												tmp[n] = tonumber(t)
+												err = tonumber(consigne-t)
+												somme_erreurs = somme_erreurs+err
+												moy_erreur = moy_erreur+err*n^3
+												n = n+1
+											end)
+
+			somme_erreurs = round(constrain(somme_erreurs,0,255),1)
+			moy_erreur = round(moy_erreur/100,2)
+			
+			-- calcul de la dérivée (régression linéaire - méthode des moindres carrés)
+			local delta_erreurs = round((4*(4*tmp[1]+3*tmp[2]+2*tmp[3]+tmp[4])-10*(tmp[1]+tmp[2]+tmp[3]+tmp[4]))/20,2)
+			
+			-- aux abords de la consigne, passage au second systême integrale
+			if somme_erreurs < 2 then
+				somme_erreurs = tonumber(uservariables['PID_integrale_'..pid['zone']])
+				-- re calcule intégrale si hors hysteresis
+				-- à plus ou moins 2 dixièmes de degrés d'écart avec la consigne
+				-- le ratrapage est considéré OK, l'intégrale n'est pas recalculée
+				if math.abs(erreur) > 0.2 then
+					-- calcule intégrale
+					somme_erreurs = round(constrain(somme_erreurs+erreur/2,0,2),2)
+					-- maj
+					commandArray['Variable:PID_integrale_'..pid['zone']] = tostring(somme_erreurs)
+				end
 			end
-			log('commande: '..commande..'% ('..heatTime..'s)')
-			log('----+++------------------------------+++----')
-		end	
-
+			
+			-- calcul pid
+			local P = round(pid['Kp']*moy_erreur,2)
+			local I = round(pid['Ki']*somme_erreurs,2)
+			local D = round(pid['Kd']*delta_erreurs,2)
+			
+			-- calcul de la commande en %
+			local commande = round(constrain(P+I+D,0,100))
+					
+			-- calcul du temps de fonctionnement
+			if commande == 100 then
+				-- débordement de 20s pour ne pas couper avant recalcule
+				heatTime = (pid['cycle']*60)+20
+			elseif commande > 0 then
+				-- secu mini maxi
+				heatTime = round(constrain(commande*pid['cycle']*0.6,pid['secu'],(pid['cycle']*60)-pid['secu']))
+			elseif commande == 0 then
+				-- coupure retardée
+				heatTime = constrain(pid['secu']-lastSeen(pid['radiateur']),0,pid['secu'])
+			end
+			
+			-- AFTER n'aime pas 1 ou 2..
+			if heatTime == 1 or heatTime == 2 then
+				heatTime = 0
+			end	
+			
+			-- action sur l'élément chauffant
+			if heatTime > 0 then
+				commandArray[1] = {[pid['radiateur']] = marche}
+				commandArray[2] = {[pid['radiateur']] = arret..' AFTER '..heatTime}
+			else
+				commandArray[pid['radiateur']]=arret
+			end			
+		
+			-- journalisation
+			if pid['debug'] then
+				log('PID zone: '..string.upper(pid['zone']))
+				log('température: '..temp..'°C pour '..consigne..'°C souhaité')
+				log('Kp: '..pid['Kp'])
+				log('Ki: '..pid['Ki'])
+				log('Kd: '..pid['Kd'])
+				log('erreur: '..moy_erreur)
+				log('&#8721; erreurs: '..somme_erreurs)
+				log('&#916; erreurs: '..delta_erreurs)
+				log('P: '..P)
+				log('I: '..I)
+				log('D: '..D)
+				log('cycle: '..pid['cycle']..'min (sécu: '..pid['secu']..'s)')
+				-- avertissement si secu dépasse 1/4 du cycle
+				if ((100*pid['secu'])/(60*pid['cycle'])>25) then
+					warn('sécu trop importante, ralonger durée de cycle..')
+				end
+				log('commande: '..commande..'% ('..string.sub(os.date("!%X",heatTime),4,8):gsub("%:", "\'")..'\")')
+				log('')
+			end
+		end
 		
 	-- toutes les 15 minutes, si on ne veut pas chauffer
-	elseif ( (otherdevices[pid['OnOff']] == 'Off' or not inTime) and time.min%15 == 0 ) then
+	elseif ( otherdevices[pid['OnOff']] == 'Off' and time.min%15 == 0 ) then
 
 		-- arrêt chauffage (renvoi commande systematique par sécurité)
 		commandArray[pid['radiateur']] = arret..' AFTER '..constrain(pid['secu']-lastSeen(pid['radiateur']),3,pid['secu'])
 		
-		-- reset variable somme des erreurs au besoin
-		if (uservariables['PID_erreurs_'..pid['zone']] ~= '0;0;0;0') then
-			commandArray['Variable:PID_erreurs_'..pid['zone']] = '0;0;0;0'
+		-- reset variable intégrale au besoin
+		if (uservariables['PID_integrale_'..pid['zone']] ~= '0') then
+			commandArray['Variable:PID_integrale_'..pid['zone']] = '0'
 		end
-		
-		
 	end
 
 end
