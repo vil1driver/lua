@@ -43,7 +43,7 @@ smsGatewayIP = '192.168.22.171'
 smsGatewayPORT = '41047'
 smsGatewayURL = 'http://'..smsGatewayIP..':'..smsGatewayPORT
 
-admin = 'xxxxxxxxxx@gmail.com'
+admin = 'xxxxxxxxxxxxxxxxx@gmail.com'
 
 --------------------------------
 ------         END        ------
@@ -94,6 +94,11 @@ nightTime = timeofday['Nighttime']
 -- température
 function getTemp(device)
 	return round(tonumber(otherdevices_temperature[device]),1)
+end
+
+-- humidité
+function getHum(device)
+	return round(tonumber(otherdevices_humidity[device]),1)
 end
 
 -- set setpoint (faster way)
@@ -612,7 +617,7 @@ function compute(pid)
 				-- re calcule intégrale si hors hysteresis
 				-- à plus ou moins 2 dixièmes de degrés d'écart avec la consigne
 				-- le ratrapage est considéré OK, l'intégrale n'est pas recalculée
-				if math.abs(erreur) > 0.2 then
+				if math.abs(erreur) > 0.11 then
 					-- calcule intégrale
 					somme_erreurs = round(constrain(somme_erreurs+erreur/2,0,2),2)
 					-- maj
@@ -682,10 +687,6 @@ function compute(pid)
 		-- arrêt chauffage (renvoi commande systematique par sécurité)
 		commandArray[pid['radiateur']] = arret..' AFTER '..constrain(pid['secu']-lastSeen(pid['radiateur']),3,pid['secu'])
 		
-		-- reset variable intégrale au besoin
-		if (uservariables['PID_integrale_'..pid['zone']] ~= '0') then
-			commandArray['Variable:PID_integrale_'..pid['zone']] = '0'
-		end
 	end
 
 end
