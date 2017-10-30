@@ -117,6 +117,7 @@ function stateChange(device)
 	elseif (devicechanged[device] == uservariables['lastState_'..device]) then
 		return false
 	else
+		duree = lastSeen(uservariables_lastupdate['lastState_'..device])
 		updateVar('lastState_'..device,otherdevices[device])
 		return otherdevices[device]
 	end
