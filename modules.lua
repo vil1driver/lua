@@ -1,4 +1,4 @@
---[[
+﻿--[[
 
 
 
@@ -43,7 +43,7 @@ smsGatewayIP = '192.168.22.171'
 smsGatewayPORT = '41047'
 smsGatewayURL = 'http://'..smsGatewayIP..':'..smsGatewayPORT
 
-admin = 'xxxxxxxxxxxxxxxxx@gmail.com'
+admin = 'xxxxxxxxxx@gmail.com'
 
 --------------------------------
 ------         END        ------
@@ -64,6 +64,10 @@ end
 
 -- chargement du fichier JSON.lua
 json = assert(loadfile(luaDir..'JSON.lua'))()
+
+--time.hour ou time.min ou time.sec
+--ex : if (time.hour == 17 and time.min == 05) then
+time = os.date("*t")
 
 -- retourne l'heure actuelle ex: "12:45"
 heure = string.sub(os.date("%X"), 1, 5)
@@ -515,6 +519,27 @@ function groupOff(device)
 	os.execute(curl..'-u '..domoticzUSER..':'..domoticzPSWD..' "'..domoticzURL..'/json.htm?type=command&param=switchscene&idx='..otherdevices_scenesgroups_idx[device]..'&switchcmd=Off&passcode='..domoticzPASSCODE..'" &')
 end
 
+-- Set switch to Stop
+function switchStop(device)
+	local api = '/json.htm?type=command&param=switchlight&switchcmd=Stop'
+	local idx = '&idx='..otherdevices_idx[device]
+	local passcode = '&passcode='..domoticzPASSCODE
+	api = api..idx..passcode
+	os.execute(curl..'-u '..domoticzUSER..':'..domoticzPSWD..' "'..domoticzURL..api..'" &')
+end
+ 
+-- Setup a color & brightness of an RGB(W) light
+-- API : https://www.domoticz.com/wiki/Domoticz_API/JSON_URL%27s#Set_an_RGB.28W.29_light_to_a_certain_color_and_brightness
+function setColorAndBrightness(device, color, brightness)
+	local api = '/json.htm?type=command&param=setcolbrightnessvalue'
+	local idx = '&idx='..otherdevices_idx[device]
+	local color = '&hue='..color
+	local brightness = '&brightness='..brightness
+	local iswhite = '&iswhite=false'
+	api = api..idx..color..brightness..iswhite
+	os.execute(curl..'-u '..domoticzUSER..':'..domoticzPSWD..' "'..domoticzURL..api..'" &')
+end
+
 
 -- régulation chauffage (PID)
 --[[
@@ -545,7 +570,6 @@ end
 
 ]]
 function compute(pid)
-	time = os.date("*t")
 	local init = 0
 	
 	-- récupération température
@@ -616,7 +640,7 @@ function compute(pid)
 			if somme_erreurs < 2 then
 				somme_erreurs = tonumber(uservariables['PID_integrale_'..pid['zone']])
 				-- re calcule intégrale si hors hysteresis
-				-- à plus ou moins 2 dixièmes de degrés d'écart avec la consigne
+				-- à moins d'un dixièmes de degré d'écart avec la consigne
 				-- le ratrapage est considéré OK, l'intégrale n'est pas recalculée
 				if math.abs(erreur) > 0.11 then
 					-- calcule intégrale
@@ -680,10 +704,12 @@ function compute(pid)
 				log('commande: '..commande..'% ('..string.sub(os.date("!%X",heatTime),4,8):gsub("%:", "\'")..'\")')
 				log('')
 			end
+			
 		end
 		
+	end
 	-- toutes les 15 minutes, si on ne veut pas chauffer
-	elseif ( otherdevices[pid['OnOff']] == 'Off' and time.min%15 == 0 ) then
+	if ( time.min%15 == 0 and otherdevices[pid['OnOff']] == 'Off' ) then
 
 		-- arrêt chauffage (renvoi commande systematique par sécurité)
 		commandArray[pid['radiateur']] = arret..' AFTER '..constrain(pid['secu']-lastSeen(pid['radiateur']),3,pid['secu'])
