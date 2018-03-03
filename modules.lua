@@ -38,12 +38,7 @@ domoticzPSWD = ''		-- mot de pass
 domoticzPASSCODE = ''	-- pour interrupteur protégés
 domoticzURL = 'http://'..domoticzIP..':'..domoticzPORT
 
--- passerelle SMS
-smsGatewayIP = '192.168.22.171'
-smsGatewayPORT = '41047'
-smsGatewayURL = 'http://'..smsGatewayIP..':'..smsGatewayPORT
-
-admin = 'xxxxxxxxxx@gmail.com'
+admin = 'xxxxx@gmail.com'
 
 --------------------------------
 ------         END        ------
@@ -713,7 +708,7 @@ function compute(pid)
 
 		-- arrêt chauffage (renvoi commande systematique par sécurité)
 		commandArray[pid['radiateur']] = arret..' AFTER '..constrain(pid['secu']-lastSeen(pid['radiateur']),3,pid['secu'])
-		
+
 	end
 
 end
