@@ -38,7 +38,6 @@ domoticzPSWD = ''		-- mot de pass
 domoticzPASSCODE = ''	-- pour interrupteur protégés
 domoticzURL = 'http://'..domoticzIP..':'..domoticzPORT
 
-admin = 'xxxxx@gmail.com'
 
 --------------------------------
 ------         END        ------
@@ -100,9 +99,39 @@ function getHum(device)
 	return round(tonumber(otherdevices_humidity[device]),1)
 end
 
+-- humidité absolue
+function humAbs(t,hr)
+-- https://carnotcycle.wordpress.com/2012/08/04/how-to-convert-relative-humidity-to-absolute-humidity/
+-- Formule pour calculer l'humidité absolue
+-- Dans la formule ci-dessous, la température (T) est exprimée en degrés Celsius, l'humidité relative (hr) est exprimée en%, et e est la base des logarithmes naturels 2.71828 [élevée à la puissance du contenu des crochets]:
+-- Humidité absolue (grammes / m3 ) =  (6,122 * e^[(17,67 * T) / (T + 243,5)] * rh * 2,1674))/(273,15 + T)
+-- Cette formule est précise à 0,1% près, dans la gamme de température de -30 ° C à + 35 ° C
+	return round((6.112 * math.exp((17.67 * t)/(t+243.5)) * hr * 2.1674)/ (273.15 + t),1)
+end
+
 -- set setpoint (faster way)
 function setPoint(device,value)
 	os.execute(curl..'-u '..domoticzUSER..':'..domoticzPSWD..' "'..domoticzURL..'/json.htm?type=command&param=udevice&idx='..otherdevices_idx[device]..'&nvalue=0&svalue='..value..'" &')
+end
+
+function dimUp15(device)
+	-- 15 step
+	switchOn(device, constrain(otherdevices_svalues[device]+1,1,15))
+end
+
+function dimDown15(device)
+	-- 15 step
+	switchOn(device, constrain(otherdevices_svalues[device]-1,1,15))
+end
+
+function dimUp(device)
+	-- 100 step
+	switchOn(device, constrain(otherdevices_svalues[device]+10,10,100))
+end
+
+function dimDown(device)
+	-- 100 step
+	switchOn(device, constrain(otherdevices_svalues[device]-10,10,100))
 end
 
 -- vérifie s'il y a eu changement d'état
@@ -291,19 +320,29 @@ end
 -- usage
 -- sleep(10) -- pour mettre en pause 10 secondes
 function sleep(n)
-  os.execute('sleep '..tonumber(n))
+  os.execute('sleep '..n)
 end
 
 -- création de variable utilisateur
 -- usage
 -- creaVar('toto','10') -- pour créer une variable nommée toto comprenant la valeur 10
 function creaVar(name,value)
-	os.execute(curl..'-u '..domoticzUSER..':'..domoticzPSWD..' "'..domoticzURL..'/json.htm?type=command&param=saveuservariable&vname='..url_encode(name)..'&vtype=2&vvalue='..url_encode(value)..'" &')
+	local api = '/json.htm?type=command&param=saveuservariable'
+	local name = '&vname='..url_encode(name)
+	local vtype = '&vtype=2'
+	local value = '&vvalue='..url_encode(value)
+	api = api..name..vtype..value
+	os.execute(curl..'-u '..domoticzUSER..':'..domoticzPSWD..' "'..domoticzURL..api..'" &')
 end
 
 -- update an existing variable
 function updateVar(name,value)
-	os.execute(curl..'-u '..domoticzUSER..':'..domoticzPSWD..' "'..domoticzURL..'/json.htm?type=command&param=updateuservariable&vname='..url_encode(name)..'&vtype=2&vvalue='..url_encode(value)..'" &')
+	local api = '/json.htm?type=command&param=updateuservariable'
+	local name = '&vname='..url_encode(name)
+	local vtype = '&vtype=2'
+	local value = '&vvalue='..url_encode(value)
+	api = api..name..vtype..value
+	os.execute(curl..'-u '..domoticzUSER..':'..domoticzPSWD..' "'..domoticzURL..api..'" &')
 end
 
 -- envoie dans un capteur text une chaîne de caractères
@@ -311,7 +350,7 @@ end
 -- usage
 -- speak('tts','bonjour nous sommes dimanche')
 function speak(TTSDeviceName,txt)
-	commandArray['OpenURL'] = domoticzIP..":"..domoticzPORT..'/json.htm?type=command&param=udevice&idx='..otherdevices_idx[TTSDeviceName]..'&nvalue=0&svalue='..url_encode(txt)
+	commandArray[#commandArray+1] = {['OpenURL'] = domoticzIP..":"..domoticzPORT..'/json.htm?type=command&param=udevice&idx='..otherdevices_idx[TTSDeviceName]..'&nvalue=0&svalue='..url_encode(txt)}
 end
 
 -- récupère les infos json du périphérique
@@ -481,45 +520,72 @@ end
 
 -- switch On a device and set level if dimmmable
 function switchOn(device,level)
-	if level ~= nil then
-		os.execute(curl..'-u '..domoticzUSER..':'..domoticzPSWD..' "'..domoticzURL..'/json.htm?type=command&param=switchlight&idx='..otherdevices_idx[device]..'&switchcmd=Set%20Level&level='..level..'&passcode='..domoticzPASSCODE..'" &')
-	else	
-		os.execute(curl..'-u '..domoticzUSER..':'..domoticzPSWD..' "'..domoticzURL..'/json.htm?type=command&param=switchlight&idx='..otherdevices_idx[device]..'&switchcmd=On&passcode='..domoticzPASSCODE..'" &')
-	end	
+	local api = '/json.htm?type=command&param=switchlight'
+	local idx = '&idx='..otherdevices_idx[device]
+	local cmd
+	if level ~= nil then 
+		cmd = '&switchcmd=Set%20Level&level='..level
+	else
+		cmd = '&switchcmd=On'
+	end
+	local passcode = '&passcode='..domoticzPASSCODE
+	api = api..idx..cmd..passcode
+	os.execute(curl..'-u '..domoticzUSER..':'..domoticzPSWD..' "'..domoticzURL..api..'" &')
 end
 
 -- switch On a devive for x secondes 
 function switchOnFor(device, secs)
    switchOn(device)
-   commandArray[device] = "Off AFTER "..secs
+   commandArray[#commandArray+1] = {[device] = "Off AFTER "..secs}
 end
 
 -- switch Off a device
 function switchOff(device)
-	os.execute(curl..'-u '..domoticzUSER..':'..domoticzPSWD..' "'..domoticzURL..'/json.htm?type=command&param=switchlight&idx='..otherdevices_idx[device]..'&switchcmd=Off&passcode='..domoticzPASSCODE..'" &')
+	local api = '/json.htm?type=command&param=switchlight'
+	local idx = '&idx='..otherdevices_idx[device]
+	local cmd = '&switchcmd=Off'
+	local passcode = '&passcode='..domoticzPASSCODE
+	api = api..idx..cmd..passcode
+	os.execute(curl..'-u '..domoticzUSER..':'..domoticzPSWD..' "'..domoticzURL..api..'" &')
 end
 
 -- Toggle a device
 function switch(device)
-	os.execute(curl..'-u '..domoticzUSER..':'..domoticzPSWD..' "'..domoticzURL..'/json.htm?type=command&param=switchlight&idx='..otherdevices_idx[device]..'&switchcmd=Toggle&passcode='..domoticzPASSCODE..'" &')
+	local api = '/json.htm?type=command&param=switchlight'
+	local idx = '&idx='..otherdevices_idx[device]
+	local cmd = '&switchcmd=Toggle'
+	local passcode = '&passcode='..domoticzPASSCODE
+	api = api..idx..cmd..passcode
+	os.execute(curl..'-u '..domoticzUSER..':'..domoticzPSWD..' "'..domoticzURL..api..'" &')
 end
 
 -- switch On a group or scene
 function groupOn(device)
-	os.execute(curl..'-u '..domoticzUSER..':'..domoticzPSWD..' "'..domoticzURL..'/json.htm?type=command&param=switchscene&idx='..otherdevices_scenesgroups_idx[device]..'&switchcmd=On&passcode='..domoticzPASSCODE..'" &')
+	local api = '/json.htm?type=command&param=switchscene'
+	local idx = '&idx='..otherdevices_scenesgroups_idx[device]
+	local cmd = '&switchcmd=On'
+	local passcode = '&passcode='..domoticzPASSCODE
+	api = api..idx..cmd..passcode
+	os.execute(curl..'-u '..domoticzUSER..':'..domoticzPSWD..' "'..domoticzURL..api..'" &')
 end
 
 -- switch Off a group
 function groupOff(device)
-	os.execute(curl..'-u '..domoticzUSER..':'..domoticzPSWD..' "'..domoticzURL..'/json.htm?type=command&param=switchscene&idx='..otherdevices_scenesgroups_idx[device]..'&switchcmd=Off&passcode='..domoticzPASSCODE..'" &')
+	local api = '/json.htm?type=command&param=switchscene'
+	local idx = '&idx='..otherdevices_scenesgroups_idx[device]
+	local cmd = '&switchcmd=Off'
+	local passcode = '&passcode='..domoticzPASSCODE
+	api = api..idx..cmd..passcode
+	os.execute(curl..'-u '..domoticzUSER..':'..domoticzPSWD..' "'..domoticzURL..api..'" &')
 end
 
 -- Set switch to Stop
 function switchStop(device)
-	local api = '/json.htm?type=command&param=switchlight&switchcmd=Stop'
+	local api = '/json.htm?type=command&param=switchlight'
 	local idx = '&idx='..otherdevices_idx[device]
+	local cmd = '&switchcmd=Stop'
 	local passcode = '&passcode='..domoticzPASSCODE
-	api = api..idx..passcode
+	api = api..idx..cmd..passcode
 	os.execute(curl..'-u '..domoticzUSER..':'..domoticzPSWD..' "'..domoticzURL..api..'" &')
 end
  
@@ -528,13 +594,81 @@ end
 function setColorAndBrightness(device, color, brightness)
 	local api = '/json.htm?type=command&param=setcolbrightnessvalue'
 	local idx = '&idx='..otherdevices_idx[device]
-	local color = '&hue='..color
+	--local color = '&hue='..color
+	local color = '&hex='..color
 	local brightness = '&brightness='..brightness
 	local iswhite = '&iswhite=false'
-	api = api..idx..color..brightness..iswhite
+	local passcode = '&passcode='..domoticzPASSCODE
+	api = api..idx..color..brightness..iswhite..passcode
 	os.execute(curl..'-u '..domoticzUSER..':'..domoticzPSWD..' "'..domoticzURL..api..'" &')
 end
 
+function KelvinToRGB(temp)
+	-- http://www.tannerhelland.com/4435/convert-temperature-rgb-algorithm-code/
+    temp = temp/100
+    local red, green, blue
+	--Calculate Red:
+	if temp <= 66 then
+        red = 255
+    else
+        red = constrain(round(329.698727446 * ((temp - 60) ^ -0.1332047592)),0,255)
+	end
+    --Calculate Green:
+	if temp <= 66 then
+		green = constrain(round(99.4708025861 * math.log(temp) - 161.1195681661),0,255)
+    else
+		green = constrain(round(288.1221695283 * ((temp - 60) ^ -0.0755148492)),0,255)
+    end
+    --Calculate Blue:
+	if temp >= 66 then
+        blue = 255
+    else
+		if temp <= 19 then
+            blue = 0
+        else
+			blue = constrain(round(138.5177312231 * math.log(temp - 10) - 305.0447927307),0,255)
+		end
+	end
+	return {red,green,blue}
+end
+
+function RGBToHex(rgb)
+	-- https://gist.github.com/marceloCodget/3862929
+	local hexadecimal = ''
+	for key, value in pairs(rgb) do
+		local hex = ''
+		while(value > 0)do
+			local index = math.fmod(value, 16) + 1
+			value = math.floor(value / 16)
+			hex = string.sub('0123456789ABCDEF', index, index) .. hex			
+		end
+		if(string.len(hex) == 0)then
+			hex = '00'
+		elseif(string.len(hex) == 1)then
+			hex = '0' .. hex
+		end
+		hexadecimal = hexadecimal .. hex
+	end
+	return hexadecimal
+end
+
+function suntimeToKelvin()
+	-- http://easydomoticz.com/forum/viewtopic.php?f=10&t=6160
+	local mini = 1900
+	local maxi = 6600
+	local delta = maxi - mini
+	local wakeup = 60*timeofday['SunriseInMinutes']
+	local goodnight = 60*timeofday['SunsetInMinutes']
+	local periode = goodnight - wakeup
+	local offset = wakeup-periode/2
+	local color = mini
+	local time = os.date("*t")
+	local now = 60*(time.hour*60 + time.min)
+	if now >= wakeup and now < goodnight then
+		color = math.floor((maxi-delta/2)+(delta/2)*math.cos((now-offset)*2*math.pi/periode)+0.5)
+	end
+	return color
+end	
 
 -- régulation chauffage (PID)
 --[[
@@ -583,7 +717,7 @@ function compute(pid)
 	
 	if init == 1 then
 		log('PID '..pid['zone']..' initialisation..',pid['debug'])
-		return commandArray
+		do return end
 	end
 	
 	-- définition des variables locales
@@ -607,7 +741,7 @@ function compute(pid)
 	
 		-- maj des 4 dernières temps
 		local temps = string.match(uservariables['PID_temps_'..pid['zone']],";([^%s]+)")..";"..temp
-		commandArray['Variable:PID_temps_'..pid['zone']] = temps
+		commandArray[#commandArray+1] = {['Variable:PID_temps_'..pid['zone']] = temps}
 		
 		-- si l'on veut chauffer
 		if ( otherdevices[pid['OnOff']] == 'On' ) then
@@ -641,7 +775,7 @@ function compute(pid)
 					-- calcule intégrale
 					somme_erreurs = round(constrain(somme_erreurs+erreur/2,0,2),2)
 					-- maj
-					commandArray['Variable:PID_integrale_'..pid['zone']] = tostring(somme_erreurs)
+					commandArray[#commandArray+1] = {['Variable:PID_integrale_'..pid['zone']] = tostring(somme_erreurs)}
 				end
 			end
 			
@@ -672,10 +806,10 @@ function compute(pid)
 			
 			-- action sur l'élément chauffant
 			if heatTime > 0 then
-				commandArray[1] = {[pid['radiateur']] = marche}
-				commandArray[2] = {[pid['radiateur']] = arret..' AFTER '..heatTime}
+				commandArray[#commandArray+1] = {[pid['radiateur']] = marche}
+				commandArray[#commandArray+1] = {[pid['radiateur']] = arret..' AFTER '..heatTime}
 			else
-				commandArray[pid['radiateur']]=arret
+				commandArray[#commandArray+1] = {[pid['radiateur']]=arret}
 			end			
 		
 			-- journalisation
@@ -700,6 +834,9 @@ function compute(pid)
 				log('')
 			end
 			
+			-- maj sonde virtuelle
+			commandArray[#commandArray+1] = {['UpdateDevice'] = otherdevices_idx[pid['sonde']..'_pid']..'|0|'..temp..';'..commande..';0'}
+			
 		end
 		
 	end
@@ -707,8 +844,10 @@ function compute(pid)
 	if ( time.min%15 == 0 and otherdevices[pid['OnOff']] == 'Off' ) then
 
 		-- arrêt chauffage (renvoi commande systematique par sécurité)
-		commandArray[pid['radiateur']] = arret..' AFTER '..constrain(pid['secu']-lastSeen(pid['radiateur']),3,pid['secu'])
-
+		commandArray[#commandArray+1] = {[pid['radiateur']] = arret..' AFTER '..constrain(pid['secu']-lastSeen(pid['radiateur']),3,pid['secu'])}
+		
+		-- maj sonde virtuelle
+		commandArray[#commandArray+1] = {['UpdateDevice'] = otherdevices_idx[pid['sonde']..'_pid']..'|0|'..temp..';0;0'}
 	end
 
 end
