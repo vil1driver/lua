@@ -835,7 +835,7 @@ function compute(pid)
 			end
 			
 			-- maj sonde virtuelle
-			commandArray[#commandArray+1] = {['UpdateDevice'] = otherdevices_idx[pid['sonde']..'_pid']..'|0|'..temp..';'..commande..';0'}
+			--commandArray[#commandArray+1] = {['UpdateDevice'] = otherdevices_idx[pid['sonde']..'_pid']..'|0|'..temp..';'..commande..';0'}
 			
 		end
 		
@@ -847,7 +847,7 @@ function compute(pid)
 		commandArray[#commandArray+1] = {[pid['radiateur']] = arret..' AFTER '..constrain(pid['secu']-lastSeen(pid['radiateur']),3,pid['secu'])}
 		
 		-- maj sonde virtuelle
-		commandArray[#commandArray+1] = {['UpdateDevice'] = otherdevices_idx[pid['sonde']..'_pid']..'|0|'..temp..';0;0'}
+		--commandArray[#commandArray+1] = {['UpdateDevice'] = otherdevices_idx[pid['sonde']..'_pid']..'|0|'..temp..';0;0'}
 	end
 
 end
