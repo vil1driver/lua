@@ -230,14 +230,16 @@ end
 -- affiche les logs en bleu sauf si debug est spécifié à false
 function log(txt,debug)
     if (debug ~= false) then
-        print("<font color='#0206a9'>"..txt.."</font>")
+        --print("<font color='#0206a9'>"..txt.."</font>")
+	print(txt)
     end
 end  
 
 -- affiche les logs en rouge sauf si debug est spécifié à false
 function warn(txt,debug)
     if (debug ~= false) then
-        print("<font color='red'>"..txt.."</font>")
+        --print("<font color='red'>"..txt.."</font>")
+	print(txt)
     end
 end
 
