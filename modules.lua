@@ -231,11 +231,7 @@ end
 function log(txt,debug)
     if (debug ~= false) then
         --print("<font color='#0206a9'>"..txt.."</font>")
-<<<<<<< HEAD
 		print(txt)
-=======
-	print(txt)
->>>>>>> origin/master
     end
 end  
 
@@ -243,11 +239,7 @@ end
 function warn(txt,debug)
     if (debug ~= false) then
         --print("<font color='red'>"..txt.."</font>")
-<<<<<<< HEAD
 		print(txt)
-=======
-	print(txt)
->>>>>>> origin/master
     end
 end
 
@@ -916,7 +908,7 @@ function autotune(pid)
 				two = last
 				state = 0
 				high = lastTemp
-				log('high peak '..lastTemp)
+				log('high peak '..lastTemp,pid['debug'])
 			end	
 		elseif temp < consigne then
 			commandArray[#commandArray+1] = {[pid['radiateur']] = 'On'}
@@ -924,7 +916,7 @@ function autotune(pid)
 			if (temp > tonumber(lastTemp) and tonumber(state) == 0) then
 				state = 1
 				low = lastTemp
-				log('low peak '..lastTemp)
+				log('low peak '..lastTemp,pid['debug'])
 			end
 		end
 
@@ -942,11 +934,11 @@ function autotune(pid)
 		
 		-- journalisation
 		log('PID autotune '..string.upper(pid['zone']))
-		log(vars)
-		log('Pu:'..Pu)
-		log('A:'..A)
-		log('Ku:'..Ku)
-		log('Kp:'..Kp..' Ki:'..Ki..' Kd:'..Kd,pid['debug'])
+		log(vars,pid['debug'])
+		log('Pu:'..Pu,pid['debug'])
+		log('A:'..A,pid['debug'])
+		log('Ku:'..Ku,pid['debug'])
+		log('Kp:'..Kp..' Ki:'..Ki..' Kd:'..Kd)
 		
 	end
 end
