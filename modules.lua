@@ -231,7 +231,11 @@ end
 function log(txt,debug)
     if (debug ~= false) then
         --print("<font color='#0206a9'>"..txt.."</font>")
+<<<<<<< HEAD
 		print(txt)
+=======
+	print(txt)
+>>>>>>> origin/master
     end
 end  
 
@@ -239,7 +243,11 @@ end
 function warn(txt,debug)
     if (debug ~= false) then
         --print("<font color='red'>"..txt.."</font>")
+<<<<<<< HEAD
 		print(txt)
+=======
+	print(txt)
+>>>>>>> origin/master
     end
 end
 
