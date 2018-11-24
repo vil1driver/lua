@@ -879,6 +879,13 @@ function autotune(pid)
 		local last
 		local state
 		
+		-- définition des commandes marche/arrêt
+		if pid['invert'] then
+			marche = 'Off' ; arret = 'On'
+		else
+			marche = 'On' ; arret = 'Off'
+		end
+		
 		-- création variable
 		if (uservariables['PID_autotune_'..pid['zone']] == nil ) then
 			creaVar('PID_autotune_'..pid['zone'],'0;0;0;0;0;0;0')
@@ -900,7 +907,7 @@ function autotune(pid)
 		
 		-- hysteresis
 		if temp > consigne then
-			commandArray[#commandArray+1] = {[pid['radiateur']] = 'Off'}
+			commandArray[#commandArray+1] = {[pid['radiateur']] = arret}
 			-- peak detection
 			if (temp < tonumber(lastTemp) and tonumber(state) == 1) then
 				-- save timestamp
@@ -911,7 +918,7 @@ function autotune(pid)
 				log('high peak '..lastTemp,pid['debug'])
 			end	
 		elseif temp < consigne then
-			commandArray[#commandArray+1] = {[pid['radiateur']] = 'On'}
+			commandArray[#commandArray+1] = {[pid['radiateur']] = marche}
 			-- peak detection
 			if (temp > tonumber(lastTemp) and tonumber(state) == 0) then
 				state = 1
