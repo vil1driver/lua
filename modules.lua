@@ -230,14 +230,16 @@ end
 -- affiche les logs en bleu sauf si debug est spécifié à false
 function log(txt,debug)
     if (debug ~= false) then
-        print("<font color='#0206a9'>"..txt.."</font>")
+        --print("<font color='#0206a9'>"..txt.."</font>")
+		print(txt)
     end
 end  
 
 -- affiche les logs en rouge sauf si debug est spécifié à false
 function warn(txt,debug)
     if (debug ~= false) then
-        print("<font color='red'>"..txt.."</font>")
+        --print("<font color='red'>"..txt.."</font>")
+		print(txt)
     end
 end
 
@@ -293,6 +295,16 @@ function lastSeen(device)
   y, m, d, H, M, S = timestamp:match("(%d+)-(%d+)-(%d+) (%d+):(%d+):(%d+)")
   difference = os.difftime(os.time(), os.time{year=y, month=m, day=d, hour=H, min=M, sec=S})
   return difference
+end
+
+-- retourne le nom du switch selon son IDX
+function getDeviceName(deviceIDX)
+   for i, v in pairs(otherdevices_idx) do
+      if v == deviceIDX then
+         return i
+      end
+   end
+   return 0
 end
 
 -- contraindre
@@ -849,5 +861,84 @@ function compute(pid)
 		-- maj sonde virtuelle
 		--commandArray[#commandArray+1] = {['UpdateDevice'] = otherdevices_idx[pid['sonde']..'_pid']..'|0|'..temp..';0;0'}
 	end
+end
 
+-- détermination automatique des paramètres de régulation PID
+function autotune(pid)
+	
+	-- http://brettbeauregard.com/blog/2012/01/arduino-pid-autotune-library/
+
+	if devicechanged[pid['sonde']] then
+	
+		-- définition des variables locales
+		local high
+		local low
+		local one
+		local two
+		local lastTemp
+		local last
+		local state
+		
+		-- création variable
+		if (uservariables['PID_autotune_'..pid['zone']] == nil ) then
+			creaVar('PID_autotune_'..pid['zone'],'0;0;0;0;0;0;0')
+			log('PID autotune '..pid['zone']..' initialisation..',pid['debug'])
+			do return end
+		end
+		
+		-- récupération température
+		local temp = getTemp(pid['sonde'])
+		-- récupération consigne
+		local consigne = tonumber(otherdevices_svalues[pid['thermostat']]) or pid['thermostat']
+		
+		-- timestamp
+		local now = os.time()
+		
+		-- récupération des variables
+		local pattern = "([^;]+)"..string.rep(";([^;]+)",6)
+		high, low, one, two, lastTemp, last, state = uservariables['PID_autotune_'..pid['zone']]:match(pattern)
+		
+		-- hysteresis
+		if temp > consigne then
+			commandArray[#commandArray+1] = {[pid['radiateur']] = 'Off'}
+			-- peak detection
+			if (temp < tonumber(lastTemp) and tonumber(state) == 1) then
+				-- save timestamp
+				one = two
+				two = last
+				state = 0
+				high = lastTemp
+				log('high peak '..lastTemp)
+			end	
+		elseif temp < consigne then
+			commandArray[#commandArray+1] = {[pid['radiateur']] = 'On'}
+			-- peak detection
+			if (temp > tonumber(lastTemp) and tonumber(state) == 0) then
+				state = 1
+				low = lastTemp
+				log('low peak '..lastTemp)
+			end
+		end
+
+		-- sauvegarde
+		local vars = high..';'..low..';'..one..';'..two..';'..temp..';'..now..';'..state
+		commandArray[#commandArray+1] = {['Variable:PID_autotune_'..pid['zone']] = vars}
+		
+		-- autotune
+		local Pu = round(os.difftime(tonumber(two), tonumber(one)) / 60)
+		local A = tonumber(high - low)
+		local Ku = round(200 / (A * math.pi))
+		local Kp = round(0.6 * Ku)
+		local Ki = round(1.2 * Ku / Pu * pid['cycle'])
+		local Kd = round(0.075 * Ku * Pu / pid['cycle'])
+		
+		-- journalisation
+		log('PID autotune '..string.upper(pid['zone']))
+		log(vars)
+		log('Pu:'..Pu)
+		log('A:'..A)
+		log('Ku:'..Ku)
+		log('Kp:'..Kp..' Ki:'..Ki..' Kd:'..Kd,pid['debug'])
+		
+	end
 end
