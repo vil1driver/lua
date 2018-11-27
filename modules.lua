@@ -256,6 +256,17 @@ function file_exists(file)
      if f then f:close() end
      return f ~= nil
 end
+
+-- get all lines from a file, returns an empty 
+-- list/table if the file does not exist
+function lines_from(file)
+  if not file_exists(luaDir..file..'.txt') then return {} end
+  lines = {}
+  for line in io.lines(luaDir..file..'.txt') do 
+    lines[#lines + 1] = line
+  end
+  return lines
+end
    
 -- encode du texte pour le passer dans une url
 function url_encode(str)
@@ -869,16 +880,7 @@ function autotune(pid)
 	-- http://brettbeauregard.com/blog/2012/01/arduino-pid-autotune-library/
 
 	if devicechanged[pid['sonde']] then
-	
-		-- définition des variables locales
-		local high
-		local low
-		local one
-		local two
-		local lastTemp
-		local last
-		local state
-		
+
 		-- définition des commandes marche/arrêt
 		if pid['invert'] then
 			marche = 'Off' ; arret = 'On'
@@ -886,54 +888,56 @@ function autotune(pid)
 			marche = 'On' ; arret = 'Off'
 		end
 		
-		-- création variable
-		if (uservariables['PID_autotune_'..pid['zone']] == nil ) then
-			creaVar('PID_autotune_'..pid['zone'],'0;0;0;0;0;0;0')
-			log('PID autotune '..pid['zone']..' initialisation..',pid['debug'])
-			do return end
-		end
-		
 		-- récupération température
 		local temp = getTemp(pid['sonde'])
 		-- récupération consigne
 		local consigne = tonumber(otherdevices_svalues[pid['thermostat']]) or pid['thermostat']
-		
-		-- timestamp
-		local now = os.time()
-		
-		-- récupération des variables
-		local pattern = "([^;]+)"..string.rep(";([^;]+)",6)
-		high, low, one, two, lastTemp, last, state = uservariables['PID_autotune_'..pid['zone']]:match(pattern)
-		
+	
 		-- hysteresis
 		if temp > consigne then
 			commandArray[#commandArray+1] = {[pid['radiateur']] = arret}
-			-- peak detection
-			if (temp < tonumber(lastTemp) and tonumber(state) == 1) then
-				-- save timestamp
-				one = two
-				two = last
-				state = 0
-				high = lastTemp
-				log('high peak '..lastTemp,pid['debug'])
-			end	
 		elseif temp < consigne then
 			commandArray[#commandArray+1] = {[pid['radiateur']] = marche}
-			-- peak detection
-			if (temp > tonumber(lastTemp) and tonumber(state) == 0) then
-				state = 1
-				low = lastTemp
-				log('low peak '..lastTemp,pid['debug'])
-			end
 		end
 
-		-- sauvegarde
-		local vars = high..';'..low..';'..one..';'..two..';'..temp..';'..now..';'..state
-		commandArray[#commandArray+1] = {['Variable:PID_autotune_'..pid['zone']] = vars}
+		-- timestamp
+		local now = os.time()
+		
+		-- save all temps
+		logToFile(pid['zone']..'_temps',now..';'..temp)
+		
+		local max1 = consigne
+		local max2 = consigne
+		local mini = consigne
+		local max1_ts = now
+		local max2_ts = now
+		local mini_ts = now
+		local init = 0
+
+		-- recherche des valeurs mini/maxi
+		for _,v in spairs(ReverseTable(lines_from(pid['zone']..'_temps'))) do
+			t = tonumber(string.match(v,";([^%s]+)"))
+			ts = tonumber(string.match(v,"([^%s]+);"))
+			if t < mini and init == 0 then
+				init = 1
+			elseif t > max2 and (init == 1 or init == 2) then
+				init = 2
+				max2 = t
+				max2_ts = ts
+			elseif t < mini and (init == 2 or init == 3) then
+				init = 3
+				mini = t
+				mini_ts = ts
+			elseif t > max1 and (init == 3 or init == 4) then 
+				init = 4
+				max1 = t
+				max1_ts = ts
+			end
+		end
 		
 		-- autotune
-		local Pu = round(os.difftime(tonumber(two), tonumber(one)) / 60)
-		local A = tonumber(high - low)
+		local Pu = round(os.difftime(max2_ts, max1_ts) / 60)
+		local A = tonumber(max1 - mini)
 		local Ku = round(200 / (A * math.pi))
 		local Kp = round(0.6 * Ku)
 		local Ki = round(1.2 * Ku / Pu * pid['cycle'])
@@ -941,11 +945,17 @@ function autotune(pid)
 		
 		-- journalisation
 		log('PID autotune '..string.upper(pid['zone']))
-		log(vars,pid['debug'])
+		log('max1: '..max1..' a '..os.date('%H:%M', max1_ts),pid['debug'])
+		log('mini: '..mini..' a '..os.date('%H:%M', mini_ts),pid['debug'])
+		log('max2: '..max2..' a '..os.date('%H:%M', max2_ts),pid['debug'])
 		log('Pu:'..Pu,pid['debug'])
 		log('A:'..A,pid['debug'])
 		log('Ku:'..Ku,pid['debug'])
-		log('Kp:'..Kp..' Ki:'..Ki..' Kd:'..Kd)
+		if max1_ts < max2_ts then
+			log('Kp:'..Kp..' Ki:'..Ki..' Kd:'..Kd)
+		else
+			log('mesures en cours..')
+		end	
 		
 	end
 end
