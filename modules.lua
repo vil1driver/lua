@@ -796,7 +796,7 @@ function compute(pid)
 				-- le ratrapage est considéré OK, l'intégrale n'est pas recalculée
 				if math.abs(erreur) > 0.11 then
 					-- calcule intégrale
-					somme_erreurs = round(constrain(somme_erreurs+erreur/2,0,2),2)
+					somme_erreurs = round(constrain(somme_erreurs+erreur/2,0,3),2)
 					-- maj
 					commandArray[#commandArray+1] = {['Variable:PID_integrale_'..pid['zone']] = tostring(somme_erreurs)}
 				end
@@ -892,7 +892,7 @@ function autotune(pid)
 		local temp = getTemp(pid['sonde'])
 		-- récupération consigne
 		local consigne = tonumber(otherdevices_svalues[pid['thermostat']]) or pid['thermostat']
-	
+
 		-- hysteresis
 		if temp > consigne then
 			commandArray[#commandArray+1] = {[pid['radiateur']] = arret}
@@ -945,14 +945,13 @@ function autotune(pid)
 		
 		-- journalisation
 		log('PID autotune '..string.upper(pid['zone']))
-		log('max1: '..max1..' a '..os.date('%H:%M', max1_ts),pid['debug'])
-		log('mini: '..mini..' a '..os.date('%H:%M', mini_ts),pid['debug'])
-		log('max2: '..max2..' a '..os.date('%H:%M', max2_ts),pid['debug'])
-		log('Pu:'..Pu,pid['debug'])
-		log('A:'..A,pid['debug'])
-		log('Ku:'..Ku,pid['debug'])
-		if max1_ts < max2_ts then
-			log('Kp:'..Kp..' Ki:'..Ki..' Kd:'..Kd)
+		if init == 4 then
+			log('max1: '..max1..' a '..os.date('%H:%M', max1_ts),pid['debug'])
+			log('mini: '..mini..' a '..os.date('%H:%M', mini_ts),pid['debug'])
+			log('max2: '..max2..' a '..os.date('%H:%M', max2_ts),pid['debug'])
+			log('Pu:'..Pu,pid['debug'])
+			log('A:'..A,pid['debug'])
+			log('Ku:'..Ku,pid['debug'])log('Kp:'..Kp..' Ki:'..Ki..' Kd:'..Kd)
 		else
 			log('mesures en cours..')
 		end	
