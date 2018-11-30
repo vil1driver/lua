@@ -726,6 +726,8 @@ function compute(pid)
 	
 	-- récupération température
 	local temp = getTemp(pid['sonde'])
+	-- récupération température ext
+	local temp_ext = getTemp(pid['sonde_ext'])
 	
 	-- création variable : 4 dernières températures
 	if (uservariables['PID_temps_'..pid['zone']] == nil ) then
@@ -802,6 +804,13 @@ function compute(pid)
 				end
 			end
 			
+			-- boucle ouverte,
+			-- modification dynamique des paramètres de régulation suivant température extérieure
+			local Kb = pid['Kb'] * (consigne - temp_ext - pid['ref']) / 100
+			pid['Kp'] = round(pid['Kp'] + pid['Kp'] * Kb)
+			pid['Ki'] = round(pid['Ki'] + pid['Ki'] * Kb)
+			pid['Kd'] = round(pid['Kd'] + pid['Kd'] * Kb)
+
 			-- calcul pid
 			local P = round(pid['Kp']*moy_erreur,2)
 			local I = round(pid['Ki']*somme_erreurs,2)
@@ -951,7 +960,8 @@ function autotune(pid)
 			log('max2: '..max2..' a '..os.date('%H:%M', max2_ts),pid['debug'])
 			log('Pu:'..Pu,pid['debug'])
 			log('A:'..A,pid['debug'])
-			log('Ku:'..Ku,pid['debug'])log('Kp:'..Kp..' Ki:'..Ki..' Kd:'..Kd)
+			log('Ku:'..Ku,pid['debug'])
+			log('Kp:'..Kp..' Ki:'..Ki..' Kd:'..Kd)
 		else
 			log('mesures en cours..')
 		end	
