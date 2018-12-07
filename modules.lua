@@ -852,8 +852,8 @@ function compute(pid)
 				log('Ki: '..pid['Ki'])
 				log('Kd: '..pid['Kd'])
 				log('erreur: '..moy_erreur)
-				log('&#8721; erreurs: '..somme_erreurs)
-				log('&#916; erreurs: '..delta_erreurs)
+				log('somme erreurs: '..somme_erreurs)
+				log('delta erreurs: '..delta_erreurs)
 				log('P: '..P)
 				log('I: '..I)
 				log('D: '..D)
@@ -941,6 +941,9 @@ function autotune(pid)
 				init = 4
 				max1 = t
 				max1_ts = ts
+			elseif t <= consigne and init == 4 then
+				init = 5
+				break
 			end
 		end
 		
@@ -954,7 +957,7 @@ function autotune(pid)
 		
 		-- journalisation
 		log('PID autotune '..string.upper(pid['zone']))
-		if init == 4 then
+		if init == 5 then
 			log('max1: '..max1..' a '..os.date('%H:%M', max1_ts),pid['debug'])
 			log('mini: '..mini..' a '..os.date('%H:%M', mini_ts),pid['debug'])
 			log('max2: '..max2..' a '..os.date('%H:%M', max2_ts),pid['debug'])
