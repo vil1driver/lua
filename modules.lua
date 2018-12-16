@@ -798,7 +798,7 @@ function compute(pid)
 				-- le ratrapage est considéré OK, l'intégrale n'est pas recalculée
 				if math.abs(erreur) > 0.11 then
 					-- calcule intégrale
-					somme_erreurs = round(constrain(somme_erreurs+erreur/2,0,3),2)
+					somme_erreurs = round(constrain(somme_erreurs+erreur/2,0,5),2)
 					-- maj
 					commandArray[#commandArray+1] = {['Variable:PID_integrale_'..pid['zone']] = tostring(somme_erreurs)}
 				end
