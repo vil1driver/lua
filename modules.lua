@@ -727,7 +727,10 @@ function compute(pid)
 	-- récupération température
 	local temp = getTemp(pid['sonde'])
 	-- récupération température ext
-	local temp_ext = getTemp(pid['sonde_ext'])
+	local temp_ext = nil
+	if pid['sonde_ext'] ~= '' and pid['sonde_ext'] ~= nil then
+		temp_ext = getTemp(pid['sonde_ext'])
+	end
 	
 	-- création variable : 4 dernières températures
 	if (uservariables['PID_temps_'..pid['zone']] == nil ) then
@@ -806,7 +809,10 @@ function compute(pid)
 			
 			-- boucle ouverte,
 			-- modification dynamique des paramètres de régulation suivant température extérieure
-			local Kb = pid['Kb'] * (consigne - temp_ext - pid['ref']) / 100
+			local Kb = 0
+			if temp_ext ~= nil then
+				Kb = pid['Kb'] * (consigne - temp_ext - pid['ref']) / 100
+			end	
 			pid['Kp'] = round(pid['Kp'] + pid['Kp'] * Kb)
 			pid['Ki'] = round(pid['Ki'] + pid['Ki'] * Kb)
 			pid['Kd'] = round(pid['Kd'] + pid['Kd'] * Kb)
