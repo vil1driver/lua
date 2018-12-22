@@ -853,6 +853,9 @@ function compute(pid)
 			-- journalisation
 			if pid['debug'] then
 				log('PID zone: '..string.upper(pid['zone']))
+				if temp_ext ~= nil then
+					log('temperature ext: '..temp_ext..'°C')
+				end
 				log('température: '..temp..'°C pour '..consigne..'°C souhaité')
 				log('Kp: '..pid['Kp'])
 				log('Ki: '..pid['Ki'])
