@@ -39,6 +39,7 @@ domoticzPASSCODE = ''	-- pour interrupteur protégés
 domoticzURL = 'http://'..domoticzIP..':'..domoticzPORT
 
 
+
 --------------------------------
 ------         END        ------
 --------------------------------
@@ -79,10 +80,52 @@ coucherSoleil = string.sub(os.date("!%X",60*timeofday['SunsetInMinutes']), 1, 5)
 days = {"dimanche","lundi","mardi","mercredi","jeudi","vendredi","samedi"}
 jour = days[(os.date("%w")+1)]
 
--- est valide si la semaine est paire
+-- retourne VRAI si la semaine est paire
 -- usage :
--- if semainePaire then ..
-semainePaire = os.date("%W")%2 == 0
+-- if semainePaire() then ..
+function semainePaire()
+	local tm = os.time()
+	local function getYearBeginDayOfWeek()
+		yearBegin = os.time{year=os.date("*t",tm).year,month=1,day=1}
+		yearBeginDayOfWeek = tonumber(os.date("%w",yearBegin))
+		-- sunday correct from 0 -> 7
+		if(yearBeginDayOfWeek == 0) then yearBeginDayOfWeek = 7 end
+		return yearBeginDayOfWeek
+	end
+	local function getDayAdd()
+		yearBeginDayOfWeek = getYearBeginDayOfWeek(tm)
+		if(yearBeginDayOfWeek < 5 ) then
+			-- first day is week 1
+			dayAdd = (yearBeginDayOfWeek - 2)
+		else 
+			-- first day is week 52 or 53
+			dayAdd = (yearBeginDayOfWeek - 9)
+		end  
+		return dayAdd
+	end
+	dayOfYear = os.date("%j",tm)
+	dayAdd = getDayAdd(tm)
+	dayOfYearCorrected = dayOfYear + dayAdd
+	if(dayOfYearCorrected < 0) then
+		-- week of last year - decide if 52 or 53
+		lastYearBegin = os.time{year=os.date("*t",tm).year-1,month=1,day=1}
+		lastYearEnd = os.time{year=os.date("*t",tm).year-1,month=12,day=31}
+		dayAdd = getDayAdd(lastYearBegin)
+		dayOfYear = dayOfYear + os.date("%j",lastYearEnd)
+		dayOfYearCorrected = dayOfYear + dayAdd
+	end  
+	weekNum = math.floor((dayOfYearCorrected) / 7) + 1
+	if( (dayOfYearCorrected > 0) and weekNum == 53) then
+		-- check if it is not considered as part of week 1 of next year
+		nextYearBegin = os.time{year=os.date("*t",tm).year+1,month=1,day=1}
+		yearBeginDayOfWeek = getYearBeginDayOfWeek(nextYearBegin)
+		if(yearBeginDayOfWeek < 5 ) then
+			weekNum = 1
+		end  
+	end
+	return weekNum%2 == 0
+end
+
 
 -- il fait jour
 dayTime = timeofday['Daytime']
@@ -97,6 +140,15 @@ end
 -- humidité
 function getHum(device)
 	return round(tonumber(otherdevices_humidity[device]),1)
+end
+
+-- humidité moyenne
+function humMoy(device)
+	local monthLog = assert(io.popen(curl..'-u '..domoticzUSER..':'..domoticzPSWD..' "'..domoticzURL..'/json.htm?range=month&sensor=temp&type=graph&idx='..otherdevices_idx[device]..'"'))
+	local list = monthLog:read('*all')
+	monthLog:close()
+	local data = ReverseTable(json:decode(list).result)
+	return(round(data[1].hu))
 end
 
 -- humidité absolue
@@ -231,7 +283,7 @@ end
 function log(txt,debug)
     if (debug ~= false) then
         --print("<font color='#0206a9'>"..txt.."</font>")
-		print(txt)
+        print(txt)
     end
 end  
 
@@ -239,7 +291,7 @@ end
 function warn(txt,debug)
     if (debug ~= false) then
         --print("<font color='red'>"..txt.."</font>")
-		print(txt)
+        print(txt)
     end
 end
 
@@ -255,6 +307,16 @@ function file_exists(file)
      local f = io.open(file, "rb")
      if f then f:close() end
      return f ~= nil
+end
+
+-- retourne le nom du switch selon son IDX
+function getDeviceName(deviceIDX)
+   for i, v in pairs(otherdevices_idx) do
+      if v == deviceIDX then
+         return i
+      end
+   end
+   return 0
 end
 
 -- get all lines from a file, returns an empty 
@@ -306,16 +368,6 @@ function lastSeen(device)
   y, m, d, H, M, S = timestamp:match("(%d+)-(%d+)-(%d+) (%d+):(%d+):(%d+)")
   difference = os.difftime(os.time(), os.time{year=y, month=m, day=d, hour=H, min=M, sec=S})
   return difference
-end
-
--- retourne le nom du switch selon son IDX
-function getDeviceName(deviceIDX)
-   for i, v in pairs(otherdevices_idx) do
-      if v == deviceIDX then
-         return i
-      end
-   end
-   return 0
 end
 
 -- contraindre
@@ -816,7 +868,7 @@ function compute(pid)
 			pid['Kp'] = round(pid['Kp'] + pid['Kp'] * Kb)
 			pid['Ki'] = round(pid['Ki'] + pid['Ki'] * Kb)
 			pid['Kd'] = round(pid['Kd'] + pid['Kd'] * Kb)
-
+	
 			-- calcul pid
 			local P = round(pid['Kp']*moy_erreur,2)
 			local I = round(pid['Ki']*somme_erreurs,2)
@@ -856,7 +908,7 @@ function compute(pid)
 				if temp_ext ~= nil then
 					log('temperature ext: '..temp_ext..'°C')
 				end
-				log('température: '..temp..'°C pour '..consigne..'°C souhaité')
+				log('température int: '..temp..'°C pour '..consigne..'°C souhaité')
 				log('Kp: '..pid['Kp'])
 				log('Ki: '..pid['Ki'])
 				log('Kd: '..pid['Kd'])
@@ -890,6 +942,7 @@ function compute(pid)
 		-- maj sonde virtuelle
 		--commandArray[#commandArray+1] = {['UpdateDevice'] = otherdevices_idx[pid['sonde']..'_pid']..'|0|'..temp..';0;0'}
 	end
+
 end
 
 -- détermination automatique des paramètres de régulation PID
@@ -952,7 +1005,7 @@ function autotune(pid)
 				max1_ts = ts
 			elseif t <= consigne and init == 4 then
 				init = 5
-				break
+				break				
 			end
 		end
 		
