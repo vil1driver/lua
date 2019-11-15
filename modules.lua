@@ -402,7 +402,7 @@ end
 -- usage
 -- creaVar('toto','10') -- pour créer une variable nommée toto comprenant la valeur 10
 function creaVar(name,value)
-	local api = '/json.htm?type=command&param=saveuservariable'
+	local api = '/json.htm?type=command&param=adduservariable'
 	local name = '&vname='..url_encode(name)
 	local vtype = '&vtype=2'
 	local value = '&vvalue='..url_encode(value)
