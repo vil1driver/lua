@@ -846,7 +846,7 @@ function compute(pid)
 			local delta_erreurs = round((4*(4*tmp[1]+3*tmp[2]+2*tmp[3]+tmp[4])-10*(tmp[1]+tmp[2]+tmp[3]+tmp[4]))/20,2)
 			
 			-- aux abords de la consigne, passage au second systême integrale
-			if somme_erreurs < 2 then
+			if math.abs(somme_erreurs) < 2 then
 				somme_erreurs = tonumber(uservariables['PID_integrale_'..pid['zone']])
 				-- re calcule intégrale si hors hysteresis
 				-- à moins d'un dixièmes de degré d'écart avec la consigne
